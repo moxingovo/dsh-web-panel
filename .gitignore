@@ -1,0 +1,5 @@
+node_modules/
+*.vsix
+.npm-cache/
+__pycache__/
+*.log

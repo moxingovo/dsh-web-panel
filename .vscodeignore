@@ -1,0 +1,6 @@
+.vscode/**
+**/*.map
+node_modules/**
+test/**
+RELEASE.md
+README.md

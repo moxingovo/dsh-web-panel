@@ -24,15 +24,14 @@ slash commands, todo, token/cache stats — everything, unchanged.
 From a released `.vsix`:
 
 ```
-code --install-extension dsh-webview-0.2.1.vsix
+code --install-extension dsh-webview-0.2.2.vsix
 ```
 
-Or build it yourself:
+Or build it yourself (run in the repo root):
 
 ```
-cd dsh-webview
 npx @vscode/vsce package
-code --install-extension dsh-webview-0.2.1.vsix
+code --install-extension dsh-webview-0.2.2.vsix
 ```
 
 ## Zero-config launch

@@ -19,15 +19,14 @@
 从发布的 .vsix 安装：
 
 ```
-code --install-extension dsh-webview-0.2.1.vsix
+code --install-extension dsh-webview-0.2.2.vsix
 ```
 
-或自行打包：
+或自行打包（在仓库根目录执行）：
 
 ```
-cd dsh-webview
 npx @vscode/vsce package
-code --install-extension dsh-webview-0.2.1.vsix
+code --install-extension dsh-webview-0.2.2.vsix
 ```
 
 ## 零配置启动

@@ -101,6 +101,9 @@ class ServerManager {
 
   async start() {
     this.port = cfg().port
+    // A manual restart sets expectExit while it kills the old server; the new
+    // launch reset it so a later crash of the restarted server still self-heals.
+    this.expectExit = false
     this.setState('starting', 'connecting…')
     output.appendLine('[dsh] probing ' + this.url)
     if (cfg().attachExisting && await probe(this.port)) {

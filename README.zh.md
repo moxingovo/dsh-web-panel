@@ -1,4 +1,4 @@
-# DSH Web Panel
+﻿# DSH Web Panel
 
 把 DeepSeek Harness 的 Web GUI 嵌入 VS Code：attach（或自动启动）本机的 dsh web
 服务器，在 iframe 里渲染完整界面——会话、终端、plan 审批、斜杠命令、token/缓存统计条
@@ -13,20 +13,21 @@
 - **多工作区跟随**：本扩展自启的服务器在工作区首个文件夹变化时自动用新目录重启（dsh 的 workspace 根 = 服务器 cwd），外部实例不受影响。
 - **零额外窗口**：本扩展启动的 dsh 进程是隐藏的（windowsHide），不会像桌面快捷方式那样弹出一个 Electron/控制台窗口。
 - **自愈**：附着的外部实例掉线（比如关闭了桌面窗口）会在 15 秒内被检测到并自动拉起隐藏实例接管；自启实例意外退出也会自动重启。
+- **面板健康上报**：状态栏显示内嵌 UI 状态（加载中 / 就绪 / 未加载）。GUI 8 秒内未加载会提示、每分钟自动重试一次、页面恢复后自动清除提示；启动失败（如端口被占用）给出可操作的错误说明，而不是无声等待。
 
 ## 安装
 
 从发布的 .vsix 安装：
 
 ```
-code --install-extension dsh-webview-0.2.2.vsix
+code --install-extension dsh-webview-0.2.3.vsix
 ```
 
 或自行打包（在仓库根目录执行）：
 
 ```
 npx @vscode/vsce package
-code --install-extension dsh-webview-0.2.2.vsix
+code --install-extension dsh-webview-0.2.3.vsix
 ```
 
 ## 零配置启动

@@ -2,7 +2,7 @@
   "name": "dsh-webview",
   "displayName": "DSH Web Panel",
   "description": "Embed the DeepSeek Harness web GUI inside VS Code: attaches to (or auto-starts) the local dsh web server and renders it in a sidebar view and an editor-tab panel.",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "publisher": "local-dsh",
   "license": "MIT",
   "icon": "media/dsh.png",

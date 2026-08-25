@@ -24,6 +24,10 @@ const cfg = () => vscode.workspace.getConfiguration(CFG)
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const nonce = () => crypto.randomBytes(16).toString('base64')
 
+// Window state of the embedded iframe: 'loading' until the app reports ready;
+// 'stalled' when the shell loaded but the GUI did not come up in time.
+let uiState = 'loading'
+
 function urlOf(port) {
   return 'http://127.0.0.1:' + port
 }
@@ -164,6 +168,7 @@ class ServerManager {
     }
 
     let lastErr = ''
+    let planStderr = ''
     for (const plan of plans) {
       if (disposing) return
       output.appendLine('[dsh] launching via ' + plan.label + '  (cwd=' + this.cwd + ')')
@@ -176,8 +181,13 @@ class ServerManager {
         continue
       }
       this.child = child
+      planStderr = ''
       child.stdout.on('data', (d) => output.append(String(d)))
-      child.stderr.on('data', (d) => output.append(String(d)))
+      child.stderr.on('data', (d) => {
+        const text = String(d)
+        output.append(text)
+        planStderr = (planStderr + text).slice(-4000)
+      })
       let settled = false
       child.on('error', (err) => {
         lastErr = plan.label + ': ' + (err.code ?? err.message)
@@ -212,7 +222,11 @@ class ServerManager {
       if (this.state === 'ready' || this.state === 'attached') return
       this.kill()
     }
-    throw this.fail('could not launch dsh (' + (lastErr || 'all launch strategies failed') + '). Install it via "npm i -g @deepseek-ai/dsh", or set dshWeb.command / dshWeb.checkout. See the DSH Server output channel.')
+    const addrInUse = /EADDRINUSE|address already in use/i.test(planStderr + ' ' + lastErr)
+    throw this.fail('could not launch dsh (' + (lastErr || 'all launch strategies failed') + ')' +
+      (addrInUse
+        ? '. Port ' + this.port + ' is already in use by another instance — close that instance or change dshWeb.port, then run "DSH: Reload Panel".'
+        : '. Install it via "npm i -g @deepseek-ai/dsh", or set dshWeb.command / dshWeb.checkout. See the DSH Server output channel.'))
   }
 
   // Record an error state without throwing: event handlers (child exit/error)
@@ -227,6 +241,7 @@ class ServerManager {
   setState(state, label) {
     this.state = state
     this.label = label
+    if (state === 'ready' || state === 'attached') uiState = 'loading' // a fresh page load starts now
     refreshStatus()
     if (state === 'ready' || state === 'attached') this.broadcast('reload')
   }
@@ -271,9 +286,35 @@ class ServerManager {
 
 function refreshStatus() {
   const icons = { idle: '$(circle-slash)', starting: '$(sync~spin)', ready: '$(check)', attached: '$(plug)', error: '$(error)' }
-  statusBar.text = (icons[manager?.state] ?? '$(circle-slash)') + ' DSH'
-  statusBar.tooltip = 'DSH Web Panel — ' + (manager?.label ?? 'stopped') + ' (' + (manager?.url ?? '?') + ')'
+  const state = manager?.state ?? 'idle'
+  const uiNote = (state === 'ready' || state === 'attached')
+    ? (uiState === 'stalled' ? ' UI未加载' : uiState === 'loading' ? ' UI加载中' : '')
+    : ''
+  statusBar.text = (icons[state] ?? '$(circle-slash)') + ' DSH' + uiNote
+  statusBar.tooltip = 'DSH Web Panel — ' + (manager?.label ?? 'stopped') + ' (' + (manager?.url ?? '?') + ')' + (uiNote.length > 0 ? ' ' + uiNote.trim() : '')
   statusBar.command = 'dshWebPanel.open'
+}
+
+// Wire one webview's iframe-health reports into the status bar and output.
+function wireWebview(view) {
+  view.onDidReceiveMessage((message) => {
+    if (message === undefined || typeof message.command !== 'string') return
+    switch (message.command) {
+      case 'iframe:ready':
+        uiState = 'ready'
+        output.appendLine('[dsh] panel UI ready')
+        refreshStatus()
+        break
+      case 'iframe:stalled':
+        uiState = 'stalled'
+        output.appendLine('[dsh] panel UI did not load within 8s — server may be restarting; auto retry armed')
+        refreshStatus()
+        break
+      case 'iframe:autoReload':
+        output.appendLine('[dsh] panel UI auto-reloaded after a stall')
+        break
+    }
+  })
 }
 
 function webviewHtml(port) {
@@ -285,7 +326,15 @@ function webviewHtml(port) {
     + '<iframe id="app" src="http://127.0.0.1:' + port + '/" allow="clipboard-read; clipboard-write; fullscreen"></iframe>'
     + '<script nonce="' + n + '">'
     + 'const vscode=acquireVsCodeApi();'
-    + 'window.addEventListener("message",(e)=>{const m=e.data;if(m&&m.command==="reload"){document.getElementById("app").src="http://127.0.0.1:"+m.port+"/?_="+Date.now()}});'
+    + 'const fr=document.getElementById("app");'
+    + 'let stalled=false, autoReloadedAt=0;'
+    + 'window.addEventListener("message",(e)=>{const m=e.data;if(m&&m.command==="reload"){stalled=false;fr.src="http://127.0.0.1:"+m.port+"/?_="+Date.now();}});'
+    + 'fr.addEventListener("load",()=>{stalled=false;vscode.postMessage({command:"iframe:ready"});});'
+    + 'setTimeout(()=>{'
+    + '  if(stalled)return; stalled=true;'
+    + '  vscode.postMessage({command:"iframe:stalled"});'
+    + '  if(Date.now()-autoReloadedAt>60000){autoReloadedAt=Date.now();fr.src=fr.src.split("?_=")[0]+"?_="+Date.now();vscode.postMessage({command:"iframe:autoReload"});}'
+    + '},8000);'
     + '</script></body></html>'
 }
 
@@ -304,6 +353,7 @@ async function openPanel() {
   panel.iconPath = vscode.Uri.joinPath(context.extensionUri, 'media', 'dsh.svg')
   panel.webview.html = webviewHtml(manager.port)
   webviews.add(panel.webview)
+  wireWebview(panel.webview)
   panel.onDidDispose(() => {
     webviews.delete(panel.webview)
     openPanel.active = null
@@ -318,6 +368,7 @@ class DshPanelSerializer {
     panel.webview.options = { enableScripts: true }
     panel.webview.html = webviewHtml(manager.port)
     webviews.add(panel.webview)
+    wireWebview(panel.webview)
     panel.onDidDispose(() => {
       webviews.delete(panel.webview)
       if (openPanel.active === panel) openPanel.active = null
@@ -332,6 +383,7 @@ class DshViewProvider {
     view.webview.options = { enableScripts: true }
     view.webview.html = webviewHtml(manager.port)
     webviews.add(view.webview)
+    wireWebview(view.webview)
     view.onDidDispose(() => webviews.delete(view.webview))
     manager.ensure().catch((e) => vscode.window.showErrorMessage('DSH: ' + e.message))
   }

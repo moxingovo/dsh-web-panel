@@ -1,4 +1,4 @@
-# DSH Web Panel
+﻿# DSH Web Panel
 
 Embed the [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (dsh)
 web GUI inside VS Code. Attaches to — or automatically starts — the local dsh web
@@ -18,20 +18,25 @@ slash commands, todo, token/cache stats — everything, unchanged.
 - **Self-healing**: if an attached instance dies (e.g. its desktop window was
   closed), it is detected within ~15s and a hidden instance takes over; a crashed
   self-started instance restarts automatically.
+- **Panel health reporting**: the status bar tracks the embedded UI state
+  (loading / ready / stalled). If the GUI does not load within 8s, the extension
+  reports it, auto-retries once per minute, and clears the note when the page
+  comes up. Explicit launch failures (e.g. port already in use) get actionable
+  error text instead of a silent "connection…" wait.
 
 ## Install
 
 From a released `.vsix`:
 
 ```
-code --install-extension dsh-webview-0.2.2.vsix
+code --install-extension dsh-webview-0.2.3.vsix
 ```
 
 Or build it yourself (run in the repo root):
 
 ```
 npx @vscode/vsce package
-code --install-extension dsh-webview-0.2.2.vsix
+code --install-extension dsh-webview-0.2.3.vsix
 ```
 
 ## Zero-config launch

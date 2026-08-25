@@ -21,6 +21,7 @@ const mockWebview = {
   html: '',
   options: {},
   postMessage(m) { console.log('[verify] webview postMessage:', JSON.stringify(m)) },
+  onDidReceiveMessage(cb) { mockWebview._messageHandler = cb; return { dispose() {} } },
 }
 const mockPanel = makeDisposable({
   webview: mockWebview,
@@ -86,7 +87,13 @@ setTimeout(async () => {
   const html = mockWebview.html
   console.log('[verify] iframe targets 3080:', html.includes('http://127.0.0.1:3080/'))
   console.log('[verify] reload handler wired:', html.includes('command==="reload"'))
-  const ok = attached && panelCount === 1 && html.includes('http://127.0.0.1:3080/') && html.includes('command==="reload"')
+  console.log('[verify] iframe health report wired:', html.includes('iframe:ready') && html.includes('iframe:stalled') && html.includes('iframe:autoReload'))
+  // Simulate the embedded page reporting a stall, then recovery.
+  mockWebview._messageHandler({ command: 'iframe:stalled' })
+  console.log('[verify] stall reflected in status bar:', mockStatusBar.text.includes('UI未加载'))
+  mockWebview._messageHandler({ command: 'iframe:ready' })
+  console.log('[verify] ready clears the note:', !mockStatusBar.text.includes('UI'))
+  const ok = attached && panelCount === 1 && html.includes('http://127.0.0.1:3080/') && html.includes('command==="reload"') && html.includes('iframe:ready') && html.includes('iframe:stalled') && mockStatusBar.text.includes('$(plug)')
   console.log(ok ? '[verify] ALL PASS' : '[verify] FAIL')
   process.exit(ok ? 0 : 1)
 }, 4000)

@@ -59,7 +59,7 @@
     // Claude Code 风格布局:顶部细条 + 消息区 + 底部圆角输入 + 药丸选择器
     root.innerHTML =
       '<header class="dsh-header">' +
-      '  <div class="brand" title="DeepSeek Harness">&#10035; DSH <span class="brand-ver">f9</span></div>' +
+      '  <div class="brand" title="DeepSeek Harness">&#10035; DSH <span class="brand-ver">f11</span></div>' +
       '  <div class="hdr-actions">' +
       '    <button class="iconbtn" id="btnSessions" title="会话列表">&#9776;</button>' +
       '    <button class="iconbtn" id="btnNewSession" title="新会话">&#10010;</button>' +
@@ -141,7 +141,10 @@
     setTimeout(() => document.addEventListener('pointerdown', close), 0)
     return menu
   }
-  function permLabel() { return S.perm === 'plan' ? '权限:计划模式' : '权限:自动' }
+  function permLabel() {
+    if (S.open && S.open.planActive) return '权限:计划模式中'
+    return S.perm === 'plan' ? '权限:计划模式' : '权限:自动'
+  }
 
   function bindHeader() {
     $('#btnSessions').addEventListener('click', () => { $('.dsh-sessionbar').hidden = !$('.dsh-sessionbar').hidden })
@@ -166,6 +169,10 @@
       if (!o || !S.openId) return
       const list = o.modelList || []
       const cur = currentModel()
+      if (!list.length) {
+        pillMenu(e.currentTarget, [{ label: '模型列表不可用', value: undefined }], () => {})
+        return
+      }
       pillMenu(e.currentTarget, list.map((m, i) => ({
         label: m.name,
         meta: m.provider,
@@ -174,7 +181,8 @@
       })), (i) => {
         const m = list[i]
         if (!m) return
-        post({ type: 'selectModel', sessionId: S.openId, provider: m.provider, model: m.model, reasoningEffort: m.reasoningEffort })
+        // 切模型保持当前推理档(服务端默认档只在未指定时使用)
+        post({ type: 'selectModel', sessionId: S.openId, provider: m.provider, model: m.model, reasoningEffort: cur ? cur.reasoningEffort : undefined })
       })
     })
     $('#effortPill').addEventListener('click', (e) => {
@@ -496,6 +504,7 @@
       timeline: [],
       stream: null,
       contextWindow: null,
+      planActive: false,
     }
     if (m.events.length > 400) {
       const cut = m.events.length - 400
@@ -556,10 +565,25 @@
       case 'user/message': {
         const parts = partsOf(d.message && d.message.content)
         if (!parts.length) break // 空内容帧不渲染(服务端可能回放空帧)
-        const row = { kind: 'user', parts, ts: ev.time }
+        // 斜杠命令渲染为命令芯片(harness 同款),不占用户气泡
+        const isSlash = parts.length === 1 && parts[0].type === 'text' && /^\/\S/.test(String(parts[0].text || ''))
+        const row = isSlash
+          ? { kind: 'system', text: parts[0].text, ts: ev.time }
+          : { kind: 'user', parts, ts: ev.time }
         rows.push(row)
         break
       }
+      case 'plan/mode':
+        S.open.planActive = !!d.active
+        if (!d.active && S.perm === 'plan') S.perm = 'auto' // 计划模式关闭后回落到自动
+        renderHeaderSelects()
+        break
+      case 'agent-preset/selected':
+        if (d && typeof d.agentPreset === 'string' && d.agentPreset) {
+          S.open.preset = d.agentPreset
+          renderHeaderSelects()
+        }
+        break
       case 'assistant/chunk':
         foldChunk(d, rows)
         break

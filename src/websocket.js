@@ -28,7 +28,7 @@ class SimpleWebSocket {
         Upgrade: 'websocket',
         'Sec-WebSocket-Key': key,
         'Sec-WebSocket-Version': '13',
-        'User-Agent': 'dsh-webview/0.4.0',
+        'User-Agent': 'dsh-webview/0.4.1',
       },
     })
     this.req = req

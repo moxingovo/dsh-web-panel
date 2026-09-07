@@ -25,6 +25,6 @@
 
 原生侧边栏基座:协议客户端(`POST /api/*` + 双 WebSocket 下行)、会话/消息渲染、模型/预设切换、context-meter。详见 git log。
 
-## v0.2.x 及更早
+## 0.2.x 及更早
 
 iframe 内嵌 dsh Web GUI 版(已被 0.3.x 起替代)。

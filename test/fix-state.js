@@ -1,22 +1,17 @@
 'use strict'
-// DSH state fix v4 — comprehensive, exact-match surgery on VS Code storage.
-// MUST be run with VS Code FULLY CLOSED (otherwise VS Code overwrites on exit).
-// Idempotent; one backup per DB (state.vscdb.bak-dsh).
+// DSH state fix v5 — MINIMAL surgery on VS Code storage.
+// MUST be run with VS Code FULLY CLOSED. Idempotent; one backup per DB.
 //
-// What it does:
-//  GLOBAL storage:
-//   - aux pinnedPanels:           remove chat + stale 'dsh'; ensure claude + dsh-aux pinned
-//   - aux placeholderPanels:      remove chat + stale 'dsh'
-//   - panel.chat.hidden:          ensure chat view isHidden:true
-//   - activity pinnedViewlets2:   remove stale 'dsh'
-//   - stale keys: workbench.view.extension.dsh.*
-//  EVERY workspace storage:
-//   - aux viewContainersWorkspaceState: remove chat + stale 'dsh'; ensure claude + dsh-aux visible
-//   - panel viewContainersWorkspaceState: remove chat + stale 'dsh'
-//   - workbench.panel.chat:       force view isHidden:true (prevents tab resurrection)
-//   - activity viewletsWorkspaceState: remove stale 'dsh'
-//   - auxiliarybar.activepanelid: clear if it points at chat
-//   - stale keys: workbench.view.extension.dsh.* / memento/webviewView.dshWebView / copilot leftovers
+// Touches ONLY:
+//  - global aux pinnedPanels:        remove chat + stale 'dsh'; ensure claude + dsh-aux pinned
+//  - global aux placeholderPanels:   remove chat + stale 'dsh'
+//  - global panel.chat.hidden:       ensure chat view isHidden:true
+//  - workspace aux viewContainersWorkspaceState: remove chat + stale 'dsh'; ensure claude + dsh-aux visible
+//  - workspace panel viewContainersWorkspaceState: remove chat + stale 'dsh' (keep everything else)
+//  - workspace workbench.panel.chat: force view isHidden:true
+//  - workspace auxiliarybar.activepanelid: clear if it points at chat
+//  - stale keys: workbench.view.extension.dsh.* (exact ids only, never dsh-aux)
+// NEVER touches activity bar / panel pinned lists (v4 bug: they were stripped).
 const { DatabaseSync } = require('node:sqlite')
 const fs = require('node:fs')
 const path = require('node:path')
@@ -50,21 +45,19 @@ function delKey(db, key) {
   db.prepare('DELETE FROM ItemTable WHERE key = ?').run(key)
 }
 
-// Filter an array list by id; returns [nextList, changed]
-function filterList(list, keepIds) {
+// Remove ids in [removeIds]; keep everything else. Returns [list, changed].
+function filterOut(list, removeIds) {
   const next = []
   let changed = false
   for (const x of list) {
-    if (!x || typeof x.id !== 'string') { next.push(x); continue }
-    if (keepIds.has(x.id)) { next.push(x); continue }
-    changed = true // dropped
+    if (x && typeof x.id === 'string' && removeIds.has(x.id)) { changed = true; continue }
+    next.push(x)
   }
   return [next, changed]
 }
 
 function ensureEntry(list, id, maker) {
-  const idx = list.findIndex((x) => x && x.id === id)
-  if (idx >= 0) return [list, false]
+  if (list.some((x) => x && x.id === id)) return [list, false]
   return [[...list, maker()], true]
 }
 
@@ -75,7 +68,7 @@ function processWorkspace(dbPath) {
 
   const aux = getJson(db, 'workbench.auxiliarybar.viewContainersWorkspaceState')
   if (Array.isArray(aux)) {
-    let [l, c] = filterList(aux, new Set([OURS, CC]))
+    let [l, c] = filterOut(aux, new Set([CHAT, STALE]))
     let [l2, c2] = ensureEntry(l, OURS, () => ({ id: OURS, visible: true }))
     let [l3, c3] = ensureEntry(l2, CC, () => ({ id: CC, visible: true }))
     mark(c || c2 || c3)
@@ -84,12 +77,11 @@ function processWorkspace(dbPath) {
 
   const panel = getJson(db, 'workbench.panel.viewContainersWorkspaceState')
   if (Array.isArray(panel)) {
-    let [l, c] = filterList(panel, new Set([OURS, CC]))
+    let [l, c] = filterOut(panel, new Set([CHAT, STALE]))
     mark(c)
     setJson(db, 'workbench.panel.viewContainersWorkspaceState', l)
   }
 
-  // Force the core chat VIEW closed (keeps the key so VS Code does not recreate it as open)
   const chatView = getJson(db, CHAT)
   if (chatView === null || typeof chatView !== 'object') {
     setJson(db, CHAT, { 'workbench.panel.chat.view.copilot': { collapsed: false, isHidden: true } })
@@ -103,20 +95,11 @@ function processWorkspace(dbPath) {
   }
   delKey(db, CHAT + '.numberOfVisibleViews')
 
-  const act = getJson(db, 'workbench.activity.viewletsWorkspaceState')
-  if (Array.isArray(act)) {
-    let [l, c] = filterList(act, new Set([OURS, CC]))
-    mark(c)
-    setJson(db, 'workbench.activity.viewletsWorkspaceState', l)
-  }
-
   const activeId = db.prepare('SELECT value FROM ItemTable WHERE key = ?').get('workbench.auxiliarybar.activepanelid')
   if (activeId && String(activeId.value).includes(CHAT)) { delKey(db, 'workbench.auxiliarybar.activepanelid'); mark(true) }
   if (activeId && String(activeId.value) === STALE) { setJson(db, 'workbench.auxiliarybar.activepanelid', OURS); mark(true) }
 
-  for (const k of ['workbench.view.extension.dsh.state', 'workbench.view.extension.dsh.state.hidden', 'workbench.view.extension.dsh.numberOfVisibleViews', 'memento/webviewView.dshWebView', 'memento/interactive-session-view-copilot', 'GitHub.copilot-chat']) {
-    delKey(db, k)
-  }
+  for (const k of ['workbench.view.extension.dsh.state', 'workbench.view.extension.dsh.state.hidden', 'workbench.view.extension.dsh.numberOfVisibleViews', 'memento/webviewView.dshWebView']) delKey(db, k)
 
   db.close()
   return changed
@@ -129,7 +112,7 @@ function processGlobal(dbPath) {
 
   const pin = getJson(db, 'workbench.auxiliarybar.pinnedPanels')
   if (Array.isArray(pin)) {
-    let [l, c] = filterList(pin, new Set([OURS, CC]))
+    let [l, c] = filterOut(pin, new Set([CHAT, STALE]))
     let [l2, c2] = ensureEntry(l, OURS, () => ({ id: OURS, pinned: true, visible: false, order: 102 }))
     let [l3, c3] = ensureEntry(l2, CC, () => ({ id: CC, pinned: true, visible: false, order: 101 }))
     mark(c || c2 || c3)
@@ -138,21 +121,12 @@ function processGlobal(dbPath) {
 
   const ph = getJson(db, 'workbench.auxiliarybar.placeholderPanels')
   if (Array.isArray(ph)) {
-    let [l, c] = filterList(ph, new Set([OURS, CC]))
+    let [l, c] = filterOut(ph, new Set([CHAT, STALE]))
     mark(c)
     setJson(db, 'workbench.auxiliarybar.placeholderPanels', l)
   }
 
   setJson(db, 'workbench.panel.chat.hidden', [{ id: 'workbench.panel.chat.view.copilot', isHidden: true }])
-
-  const act = getJson(db, 'workbench.activity.pinnedViewlets2')
-  if (Array.isArray(act)) {
-    let [l, c] = filterList(act, new Set([OURS, CC]))
-    mark(c)
-    setJson(db, 'workbench.activity.pinnedViewlets2', l)
-  }
-
-  for (const k of ['workbench.view.extension.dsh.state.hidden', 'workbench.view.extension.dsh.state']) delKey(db, k)
 
   db.close()
   return changed

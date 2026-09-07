@@ -65,7 +65,7 @@
       '    <button class="iconbtn" id="btnCollapse" title="收起面板">&#187;</button>' +
       '  </div>' +
       '</header>' +
-      '<section class="dsh-sessionbar">' +
+      '<section class="dsh-sessionbar collapsed">' +
       '  <div class="sb-head"><span class="sb-title">会话</span><span class="sb-count"></span><button class="sb-toggle" title="展开/折叠会话列表">&#9662;</button></div>' +
       '  <div class="sb-list"></div>' +
       '</section>' +
@@ -1265,21 +1265,8 @@
     logo.appendChild(logoPath)
     empty.appendChild(logo)
     empty.appendChild(el('div', 'empty-title', 'DSH 助手'))
-    empty.appendChild(el('div', 'empty-tagline', '输入 / 或选择工具,开始对话。'))
-    const card = el('div', 'welcome-card')
-    const cardHead = el('div', 'wc-head')
-    cardHead.appendChild(el('span', 'wc-badge', '⚡'))
-    cardHead.appendChild(el('span', 'wc-title', S.conn === 'connected' ? '自动模式已启用' : '正在连接 dsh 服务…'))
-    const cardClose = el('button', 'wc-close', '×')
-    cardClose.addEventListener('click', () => { card.style.display = 'none' })
-    cardHead.appendChild(cardClose)
-    card.appendChild(cardHead)
     const d = S.describe || {}
-    const body = el('div', 'wc-body')
-    body.appendChild(el('span', '', 'DSH 自动处理模型调用与工具请求;危险操作会提示确认。'))
-    card.appendChild(body)
-    card.appendChild(el('div', 'wc-sub', '当前 ' + (d.provider || '—') + ' / ' + (d.model || '—') + (d.version ? ' · 服务 v' + d.version : '')))
-    empty.appendChild(card)
+    empty.appendChild(el('div', 'empty-tagline', '当前 ' + (d.provider || '—') + ' / ' + (d.model || '—') + (d.version ? ' · 服务 v' + d.version : '')))
     const btn = el('button', 'btn primary', '新会话')
     btn.addEventListener('click', () => post({ type: 'createSession', cwd: S.wsPath }))
     empty.appendChild(btn)

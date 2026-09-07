@@ -1227,10 +1227,12 @@
     const banner = $('.dsh-banner')
     if (!banner) return
     const bannerUp = S.server.state === 'attached' || S.server.state === 'ready'
+    // 门控:拿到 describe 之后才可能判定"服务未运行";否则一律显示连接中
     if (bannerUp && S.conn === 'connected') { banner.hidden = true; return }
     banner.hidden = false
     clear(banner)
-    if (!bannerUp) {
+    const serverDown = S.describe !== null && !bannerUp
+    if (serverDown) {
       banner.appendChild(el('span', 'banner-text', 'dsh 服务未运行(' + S.server.label + ')' + (S.server.error ? ': ' + S.server.error : '')))
       const open = el('button', 'btn', '打开浏览器')
       open.addEventListener('click', () => post({ type: 'openBrowser' }))
@@ -1240,7 +1242,7 @@
       banner.appendChild(restart)
       return
     }
-    banner.appendChild(el('span', 'banner-text', '正在连接 dsh 服务(' + S.server.label + ')…'))
+    banner.appendChild(el('span', 'banner-text', '正在连接 dsh 服务…'))
     const retry = el('button', 'btn', '重试')
     retry.addEventListener('click', () => post({ type: 'boot' }))
     banner.appendChild(retry)
@@ -1412,11 +1414,12 @@
   function scheduleWatchdog() {
     if (watchdogTimer) clearTimeout(watchdogTimer)
     watchdogTimer = setTimeout(() => {
-      if (!S.describe || S.conn !== 'connected') {
-        console.log('[dsh] boot watchdog: re-handshaking')
+      const tries = S.bootTries || 0
+      if ((!S.describe || S.conn !== 'connected') && tries < 3) {
+        console.log('[dsh] boot watchdog: re-handshaking (try ' + tries + ')')
         post({ type: 'boot' })
       }
-    }, 2500)
+    }, 3000)
   }
   function boot() {
     bootSkeleton()

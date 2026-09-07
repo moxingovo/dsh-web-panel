@@ -44,12 +44,8 @@ jobs:
 
       - name: Package VSIX
         run: vsce package
-
-      - name: Repair package.json encoding
-        shell: pwsh
-        run: |
-          $v = (Get-Content package.json -Raw | ConvertFrom-Json).version
-          ./test/fix-vsix.ps1 -Version $v
+        # 注:package.json 中文乱码是 Windows 上 vsce 的 GBK 转码问题;
+        # Linux runner 输出为干净 UTF-8,无需 test/fix-vsix.ps1 修复。
 
       - name: Upload VSIX artifact
         uses: actions/upload-artifact@v4

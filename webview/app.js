@@ -201,6 +201,9 @@
     switch (m.type) {
       case 'hello':
         S.conn = 'connecting'
+        S.bootTries = (S.bootTries || 0) + 1
+        // 握手自愈:VS Code 可能丢弃 webview 就绪前推送的消息,收不到则重试
+        scheduleWatchdog()
         break
       case 'workspace':
         S.wsPath = m.path
@@ -208,6 +211,7 @@
       case 'describe':
         S.describe = m.describe
         S.config = m.config
+        renderEmpty()
         break
       case 'connection':
         S.conn = m.state
@@ -1159,13 +1163,16 @@
     const model = $('#modelSel')
     const effort = $('#effortSel')
     const preset = $('#presetSel')
+    const selHost = $('.hdr-selects')
     const o = S.open
     if (!o) {
+      if (selHost) selHost.style.display = 'none'
       model.innerHTML = ''
       effort.innerHTML = ''
       preset.innerHTML = ''
       return
     }
+    if (selHost) selHost.style.display = ''
     clear(preset)
     const defOpt = el('option', '', o.blank ? '新建会话选择预设…' : '预设:' + (o.preset || '—'))
     defOpt.value = ''
@@ -1393,6 +1400,16 @@
   }
 
   // ── boot ──────────────────────────────────────────────────────────────────
+  let watchdogTimer = null
+  function scheduleWatchdog() {
+    if (watchdogTimer) clearTimeout(watchdogTimer)
+    watchdogTimer = setTimeout(() => {
+      if (!S.describe || S.conn !== 'connected') {
+        console.log('[dsh] boot watchdog: re-handshaking')
+        post({ type: 'boot' })
+      }
+    }, 2500)
+  }
   function boot() {
     bootSkeleton()
     renderBanner()
@@ -1400,6 +1417,7 @@
     post({ type: 'boot' })
     post({ type: 'listSessions' })
     post({ type: 'lastSession' })
+    scheduleWatchdog()
   }
   boot()
 })()

@@ -704,6 +704,10 @@ function activate(ctx) {
     // 与 Claude Code 一致:打开右侧辅助栏容器视图(首次打开后右上角图标常驻)
     await vscode.commands.executeCommand('workbench.view.extension.dsh-aux')
   }))
+  // 标题栏/编辑器标题图标入口(editor/title 菜单,同 Claude Code 的 orange icon)
+  ctx.subscriptions.push(vscode.commands.registerCommand('dshPanel.openPanel', async () => {
+    await vscode.commands.executeCommand('workbench.view.extension.dsh-aux')
+  }))
   ctx.subscriptions.push(vscode.commands.registerCommand('dshPanel.openBrowser', openInBrowser))
   ctx.subscriptions.push(vscode.commands.registerCommand('dshPanel.reload', reloadPanels))
   ctx.subscriptions.push(vscode.commands.registerCommand('dshPanel.restartServer', () => manager.restart().catch((e) => vscode.window.showErrorMessage('DSH: ' + e.message))))

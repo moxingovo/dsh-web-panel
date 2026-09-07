@@ -10,6 +10,7 @@ function disposable() { const d = { dispose() {} }; return d }
 
 const commands = {}
 const providers = {}
+const executed = []
 
 const mockStatusBar = { text: '', tooltip: '', command: '', show() {} }
 
@@ -48,7 +49,7 @@ const vscode = {
   },
   commands: {
     registerCommand: (id, handler) => { commands[id] = handler; return disposable() },
-    executeCommand: async () => undefined,
+    executeCommand: async (id) => { executed.push(id); return undefined },
   },
   env: { openExternal: async () => true, clipboard: { writeText: async () => undefined } },
   Uri: { joinPath: (u, ...seg) => ({ fsPath: path.join(typeof u === 'string' ? u : u.fsPath, ...seg) }), parse: (s) => s },
@@ -82,17 +83,25 @@ setTimeout(async () => {
   ok('dshPanel.restartServer registered', typeof commands['dshPanel.restartServer'] === 'function')
   ok('old editor command removed', typeof commands['dshWebPanel.open'] === 'undefined')
   ok('stale editor-tab migration serializer registered', true, 'R1' )
-  ok('sidebar provider registered', !!capturedProvider)
+  ok('sidebar provider registered', !!providers['dshWebViewAux'])
+  ok('activity-bar launcher provider registered', !!providers['dshLauncher'])
   ok('status bar points to toggle', mockStatusBar.command === 'dshPanel.toggle')
+  ok('title-bar panel command registered', typeof commands['dshPanel.openPanel'] === 'function')
 
   // resolve the sidebar view and assert the native UI contract (R1: no iframe)
-  capturedProvider.resolveWebviewView(mockView)
-  ok('webview html set', mockView.webview.html.length > 1000)
-  ok('R1 no iframe', !mockView.webview.html.includes('<iframe'))
-  ok('native UI marker present', mockView.webview.html.includes('dsh-root') || mockView.webview.html.includes('DSH 原生侧边栏'))
-  ok('CSP nonce script', mockView.webview.html.includes('script-src') && mockView.webview.html.includes('nonce-'))
-  ok('app js inlined', mockView.webview.html.includes('acquireVsCodeApi'))
-  ok('webview protocol bridge handler wired', typeof mockView._handler === 'function')
+  const auxView = { ...mockView, webview: { options: {}, html: '', postMessage() {}, onDidReceiveMessage(cb) { auxView._handler = cb; return disposable() } } }
+  providers['dshWebViewAux'].resolveWebviewView(auxView)
+  ok('webview html set', auxView.webview.html.length > 1000)
+  ok('R1 no iframe', !auxView.webview.html.includes('<iframe'))
+  ok('native UI marker present', auxView.webview.html.includes('dsh-root') || auxView.webview.html.includes('DSH 原生侧边栏'))
+  ok('CSP nonce script', auxView.webview.html.includes('script-src') && auxView.webview.html.includes('nonce-'))
+  ok('app js inlined', auxView.webview.html.includes('acquireVsCodeApi'))
+  ok('webview protocol bridge handler wired', typeof auxView._handler === 'function')
+
+  // launcher view: opening it must summon the right-side panel
+  providers['dshLauncher'].resolveWebviewView({ ...mockView, webview: { options: {}, html: '', postMessage() {}, onDidReceiveMessage() { return disposable() } } })
+  await new Promise((r) => setTimeout(r, 120))
+  ok('launcher summons aux view', executed.includes('workbench.view.extension.dsh-aux'))
 
   console.log(failures === 0 ? '[verify] ALL PASS' : '[verify] FAIL count=' + failures)
   process.exit(failures === 0 ? 0 : 1)

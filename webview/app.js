@@ -59,7 +59,7 @@
     // Claude Code 风格布局:顶部细条 + 消息区 + 底部圆角输入 + 药丸选择器
     root.innerHTML =
       '<header class="dsh-header">' +
-      '  <div class="brand" title="DeepSeek Harness">&#10035; DSH <span class="brand-ver">f8</span></div>' +
+      '  <div class="brand" title="DeepSeek Harness">&#10035; DSH <span class="brand-ver">f9</span></div>' +
       '  <div class="hdr-actions">' +
       '    <button class="iconbtn" id="btnSessions" title="会话列表">&#9776;</button>' +
       '    <button class="iconbtn" id="btnNewSession" title="新会话">&#10010;</button>' +
@@ -179,16 +179,18 @@
     })
     $('#effortPill').addEventListener('click', (e) => {
       const o = S.open
-      const m = currentModel()
-      if (!o || !S.openId || !m) return
-      const efforts = (m.reasoning && m.reasoning.efforts) || []
+      const cur = currentModel()
+      if (!o || !S.openId || !cur) return
+      // 从模型列表条目取 reasoning.efforts(当前选中对象本身不含该字段)
+      const entry = (o.modelList || []).find((x) => x.provider === cur.provider && x.model === cur.model)
+      const efforts = (entry && entry.reasoning && entry.reasoning.efforts) || []
       if (!efforts.length) return
       pillMenu(e.currentTarget, efforts.map((ef) => ({
         label: ef.name || ef.id,
         value: ef.id,
-        checked: m.reasoningEffort === ef.id,
+        checked: cur.reasoningEffort === ef.id,
       })), (v) => {
-        post({ type: 'selectModel', sessionId: S.openId, provider: m.provider, model: m.model, reasoningEffort: v })
+        post({ type: 'selectModel', sessionId: S.openId, provider: cur.provider, model: cur.model, reasoningEffort: v })
       })
     })
     $('#presetPill').addEventListener('click', (e) => {

@@ -214,7 +214,7 @@ button, select, textarea { font-family: inherit; color: inherit; }
 .dsh-composer { padding: 6px 10px 8px; flex: none; }
 .composer-card {
   border: 1px solid var(--dsh-border); border-radius: var(--dsh-radius);
-  background: var(--dsh-input-bg); overflow: hidden;
+  background: var(--dsh-input-bg);
 }
 .composer-card:focus-within { border-color: var(--dsh-accent); }
 .attach-tray { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 8px 0; }

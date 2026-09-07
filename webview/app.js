@@ -59,7 +59,7 @@
     // Claude Code 风格布局:顶部细条 + 消息区 + 底部圆角输入 + 药丸选择器
     root.innerHTML =
       '<header class="dsh-header">' +
-      '  <div class="brand" title="DeepSeek Harness">&#10035; DSH <span class="brand-ver">f11</span></div>' +
+      '  <div class="brand" title="DeepSeek Harness">&#10035; DSH <span class="brand-ver">f12</span></div>' +
       '  <div class="hdr-actions">' +
       '    <button class="iconbtn" id="btnSessions" title="会话列表">&#9776;</button>' +
       '    <button class="iconbtn" id="btnNewSession" title="新会话">&#10010;</button>' +
@@ -181,6 +181,11 @@
       })), (i) => {
         const m = list[i]
         if (!m) return
+        // 立即乐观更新(服务端实测 25-70ms,但 UI 不应等待 ack 才反馈)
+        if (S.open && S.open.models && S.open.models.current) {
+          S.open.models.current = { provider: m.provider, model: m.model, reasoningEffort: cur ? cur.reasoningEffort : undefined }
+        }
+        renderHeaderSelects()
         // 切模型保持当前推理档(服务端默认档只在未指定时使用)
         post({ type: 'selectModel', sessionId: S.openId, provider: m.provider, model: m.model, reasoningEffort: cur ? cur.reasoningEffort : undefined })
       })
@@ -198,6 +203,9 @@
         value: ef.id,
         checked: cur.reasoningEffort === ef.id,
       })), (v) => {
+        // 立即乐观更新推理档
+        if (cur) cur.reasoningEffort = v
+        renderHeaderSelects()
         post({ type: 'selectModel', sessionId: S.openId, provider: cur.provider, model: cur.model, reasoningEffort: v })
       })
     })
@@ -506,6 +514,9 @@
       contextWindow: null,
       planActive: false,
     }
+    // 预设直接取自会话列表项(session.list 每项带 agentPreset),不依赖历史事件窗口
+    const listItem = S.sessions.find((s) => s.sessionId === m.sessionId)
+    if (listItem && typeof listItem.agentPreset === 'string' && listItem.agentPreset) S.open.preset = listItem.agentPreset
     if (m.events.length > 400) {
       const cut = m.events.length - 400
       S.open.skipped = cut
@@ -565,12 +576,10 @@
       case 'user/message': {
         const parts = partsOf(d.message && d.message.content)
         if (!parts.length) break // 空内容帧不渲染(服务端可能回放空帧)
-        // 斜杠命令渲染为命令芯片(harness 同款),不占用户气泡
-        const isSlash = parts.length === 1 && parts[0].type === 'text' && /^\/\S/.test(String(parts[0].text || ''))
-        const row = isSlash
-          ? { kind: 'system', text: parts[0].text, ts: ev.time }
-          : { kind: 'user', parts, ts: ev.time }
-        rows.push(row)
+        // 斜杠命令不渲染为消息:切换类操作(如 /plan)应表现为直接切换,
+        // 其反馈由 plan/mode 徽标与命令结果行提供(harness 亦以命令芯片呈现)
+        if (parts.length === 1 && parts[0].type === 'text' && /^\/\S/.test(String(parts[0].text || ''))) break
+        rows.push({ kind: 'user', parts, ts: ev.time })
         break
       }
       case 'plan/mode':

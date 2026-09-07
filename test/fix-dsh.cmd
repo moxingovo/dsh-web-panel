@@ -9,6 +9,8 @@ if not errorlevel 1 (
 )
 set "NODE=%ProgramFiles%\nodejs\node.exe"
 if not exist "%NODE%" set "NODE=node"
+"%NODE%" "%~dp0fix-cache.js"
+echo.
 "%NODE%" "%~dp0fix-state.js"
 echo.
 echo [DSH fix] done. Reopen VS Code to verify.

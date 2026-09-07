@@ -61,7 +61,7 @@
       }
     ],
     "viewsContainers": {
-      "secondarySidebar": [
+      "activitybar": [
         {
           "id": "dsh",
           "title": "DeepSeek Harness",

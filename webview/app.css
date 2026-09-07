@@ -76,6 +76,11 @@ button, select, textarea { font-family: inherit; color: inherit; }
 .sb-row.active { background: var(--dsh-sel); color: var(--dsh-sel-fg); border-left-color: var(--dsh-accent); }
 .sb-titleline { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
 .sb-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.sb-rename-input {
+  flex: 1; min-width: 0; font-size: 12px; padding: 1px 4px;
+  background: var(--dsh-input-bg); color: var(--dsh-input-fg);
+  border: 1px solid var(--dsh-accent); border-radius: 4px; outline: none;
+}
 .sb-dot.running { width: 7px; height: 7px; border-radius: 50%; background: var(--dsh-ok); flex: none; }
 .sb-subline { display: flex; gap: 5px; color: var(--dsh-dim); font-size: 10px; flex: none; }
 .sb-time { flex: none; }

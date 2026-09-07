@@ -454,7 +454,11 @@
         renderHeaderSelects()
         break
       case 'sessionRenamed':
-        pushSystemRow('已重命名为「' + m.title + '」')
+        {
+          const item = S.sessions.find((s) => s.sessionId === m.sessionId)
+          if (item) { item.title = m.title; renderSessionList() }
+          if (S.openId === m.sessionId) pushSystemRow('已重命名为「' + m.title + '」')
+        }
         break
       case 'sessionArchived':
         S.archived = new Set(m.archivedIds || [])
@@ -535,13 +539,39 @@
       })
       row.addEventListener('contextmenu', (e) => {
         e.preventDefault()
-        showSessionMenu(e, it)
+        showSessionMenu(e, it, row)
       })
       list.appendChild(row)
     }
   }
 
-  function showSessionMenu(e, it) {
+  // 行内重命名(替代被 VS Code webview 禁用的原生 prompt)
+  function inlineRename(row, it) {
+    const nameEl = row.querySelector('.sb-name')
+    if (!nameEl) return
+    const input = document.createElement('input')
+    input.className = 'sb-rename-input'
+    input.value = it.title || ''
+    input.setAttribute('spellcheck', 'false')
+    nameEl.replaceWith(input)
+    input.focus()
+    input.select()
+    let done = false
+    const finish = (save) => {
+      if (done) return
+      done = true
+      const t = input.value.trim()
+      if (input.parentNode) input.replaceWith(nameEl)
+      if (save && t && t !== (it.title || '')) post({ type: 'renameSession', sessionId: it.sessionId, title: t })
+    }
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') finish(true)
+      else if (e.key === 'Escape') finish(false)
+    })
+    input.addEventListener('blur', () => finish(false))
+  }
+
+  function showSessionMenu(e, it, row) {
     const menu = el('div', 'ctx-menu')
     const mk = (label, fn) => {
       const b = el('button', 'ctx-item', label)
@@ -549,10 +579,7 @@
       menu.appendChild(b)
       return b
     }
-    mk('重命名', () => {
-      const t = prompt('新标题', it.title || '')
-      if (t !== null) post({ type: 'renameSession', sessionId: it.sessionId, title: t })
-    })
+    mk('重命名', () => inlineRename(row, it))
     mk('归档', () => post({ type: 'archiveSession', sessionId: it.sessionId }))
     mk('派生新会话(fork)', () => post({ type: 'forkSession', sessionId: it.sessionId }))
     if (it.running) mk('停止', () => post({ type: 'cancel', sessionId: it.sessionId }))

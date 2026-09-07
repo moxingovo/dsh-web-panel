@@ -1,6 +1,9 @@
+.github/**
 .vscode/**
-**/*.map
-node_modules/**
 test/**
+node_modules/**
+*.vsix
+**/*.map
+.gitignore
+.editorconfig
 RELEASE.md
-README.md

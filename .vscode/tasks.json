@@ -1,0 +1,20 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "tests",
+      "type": "shell",
+      "command": "node test/mock-verify.js && node test/ui-smoke.js"
+    },
+    {
+      "label": "package",
+      "type": "shell",
+      "command": "npx @vscode/vsce package"
+    },
+    {
+      "label": "package (win, fixed)",
+      "type": "shell",
+      "command": "npx @vscode/vsce package && pwsh -File test\\fix-vsix.ps1"
+    }
+  ]
+}

@@ -10,6 +10,9 @@
     "type": "git",
     "url": "https://github.com/moxingovo/dsh-web-panel"
   },
+  "bugs": {
+    "url": "https://github.com/moxingovo/dsh-web-panel/issues"
+  },
   "keywords": [
     "deepseek",
     "deepseek-harness",
@@ -23,7 +26,8 @@
     "vscode": "^1.85.0"
   },
   "categories": [
-    "Other"
+    "AI",
+    "Chat"
   ],
   "activationEvents": [
     "onStartupFinished",

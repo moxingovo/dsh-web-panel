@@ -1,107 +1,114 @@
 # DSH Web Panel
 
-A **Claude Code-style native DSH sidebar** for VS Code: a self-written native
-front-end (no iframe) that reuses your existing dsh web service
-(127.0.0.1:3080 by default) and `~/.dsh` — no second gateway, no server changes.
+**English** | [简体中文](README.zh-CN.md)
 
-> Unofficial community extension. Not affiliated with DeepSeek.
+A **Claude Code-style native sidebar** for using [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) inside VS Code. No web-page clone, no iframe, no second gateway: the extension reuses your existing dsh web service (default `127.0.0.1:3080`) and `~/.dsh`, talking to the service protocol (`POST /api/*` RPC + dual WebSocket downlinks) with a self-written native front-end.
 
-- **Entry points (same as Claude Code)**: the **DeepSeek Harness icon** (DeepSeek
-  blue) in the top-right auxiliary bar — click to summon the chat panel; the
-  status-bar **DSH** item shows server state and toggles the panel; `Ctrl+Alt+D`.
-- **Sessions**: current-workspace sessions only — create / switch / archive /
-  rename / fork; the context meter shows real server-side token data.
-- **Model & preset**: model + reasoning-effort pickers; preset switching is
-  blank-session-only (locked once the conversation starts — a server constraint).
-- **Capabilities**: streaming replies, stop, tool cards / approval cards / todos /
-  timeline, image attachments (vision), `/compact`, Markdown + code blocks.
-- **Protocol**: `POST /api/*` RPC plus dual WebSocket downlinks (mux/host
-  frames) — see [docs/protocol.md](docs/protocol.md).
+> Community build `0.4.0`. Protocol baseline: deepseek-harness `0.1.0-rc.5` (see [docs/protocol.md](docs/protocol.md)).
+
+## Features
+
+- **Native VS Code workbench**: everything lives in the right auxiliary sidebar, Claude Code-style; no iframe, no embedded WebUI.
+- **Multiple entries**: top-right title-bar icon (`editor/title` + titleBar mode), persistent activity-bar icon (one click summons the right panel), `Ctrl+Alt+D`, status-bar DSH.
+- **Workspace-synced sessions**: lists only the current workspace's sessions (path-normalized); new sessions are created with `workspaceId` so they land in the harness workspace, never "ungrouped".
+- **Harness bottom bar port**:
+  - sandbox-permission pill (`/permission` — read-only / workspace-write / full access; projection-driven, live two-way sync with the web UI);
+  - model / reasoning-effort pills (custom pill menus, 2 s cross-client sync poll, instant menu open);
+  - agent-preset pill (switchable while blank, locked once started per server constraint);
+  - 14px context-occupancy ring (harness-style) with percent + `~tokens / window` + system/tools/messages breakdown panel;
+  - single send/stop button: idle = send, running = stop, Enter while running = steer-insert.
+- **Streaming chat**: Markdown (code copy), reasoning blocks, tool/approval/todo cards, image attachments (vision), `/compact`, silent slash-command execution.
+- **Reliability**: events are de-duplicated by seq (no duplicate/empty bubbles); history fold records the watermark so live frames never re-apply.
+- **Session management**: archive, rename, fork, live context usage; titles follow server projections.
+- **Full Chinese UI + 100% VS Code theme variables**, dark/light adaptive.
+
+## Layout
+
+```
+┌────────────────────────────────────┐
+│ ✳ DSH v0.4.0        ☰ ＋ ⚙ »      │ ← header (sessions drawer / new / settings / collapse)
+├────────────────────────────────────┤
+│ messages (streaming / welcome)     │
+├────────────────────────────────────┤
+│ ┌─ rounded input card ───────────┐ │
+│ │ [input, Enter to send]         │ │
+│ │ perm model effort preset …(ring)↑ │ ← harness-style in-card footer
+│ └────────────────────────────────┘ │
+└────────────────────────────────────┘
+```
 
 ## Install
 
-From a released `.vsix`:
+1. Download `dsh-webview-x.y.z.vsix` from [Releases](https://github.com/moxingovo/dsh-web-panel/releases).
+2. Open the Extensions panel (`Cmd/Ctrl+Shift+X`).
+3. Click `...` → **Install from VSIX...** and select the file.
+4. Reload the VS Code window.
 
-```
-code --install-extension dsh-webview-0.4.0.vsix
-```
+## Quick start
 
-Or build it yourself (run in the repo root):
+1. Start DeepSeek Harness (desktop app or `dsh web --port 3080`) — optional; the extension can spawn one.
+2. Open your project folder.
+3. Click the top-right **DSH icon** (or the activity-bar icon / `Ctrl+Alt+D`).
+4. Pick a workspace session via ☰, or create one with ＋; type your task and send.
 
-```
-npx @vscode/vsce package
-pwsh -File test\fix-vsix.ps1   # repairs vsce's UTF-8 mangling of package.json
-code --install-extension dsh-webview-0.4.0.vsix
-```
-
-> ⚠️ Known issue: on some Windows environments `vsce package` re-encodes the
-> Chinese text in `package.json` as GBK mojibake and can even break the JSON.
-> Always run `test\fix-vsix.ps1` after packaging.
-
-## Zero-config launch
-
-On startup the extension probes `dshWeb.port` (default 3080) and attaches if a
-dsh instance responds. Otherwise it starts one, trying in order:
-`dshWeb.command` → `dshWeb.checkout` → `dsh` on PATH → `npx @deepseek-ai/dsh`.
-The server runs with **cwd = the first workspace folder** and `DSH_HOME` pinned
-to `~/.dsh` (identical to attach — never isolated).
+Zero config: the extension probes port 3080, attaches if an instance responds (sharing all your desktop Harness sessions), otherwise starts one (`dshWeb.command` → `dshWeb.checkout` → `dsh` on PATH → `npx @deepseek-ai/dsh`).
 
 ## Settings
 
 | Setting | Default | Meaning |
 |---|---|---|
-| `dshWeb.port` | 3080 | Port to attach to or start on |
-| `dshWeb.attachExisting` | true | Reuse a running instance instead of starting a new one |
-| `dshWeb.spawnIfMissing` | true | Start a server when none is running |
-| `dshWeb.checkout` | "" (auto) | Optional checkout path (launches `apps/cli/lib/bin.js`) |
+| `dshWeb.port` | `3080` | Port to attach to / start on |
+| `dshWeb.attachExisting` | `true` | Reuse a running instance (share its sessions) |
+| `dshWeb.spawnIfMissing` | `true` | Start one when none responds |
+| `dshWeb.checkout` | "" | Optional checkout path (launches `apps/cli/lib/bin.js`) |
 | `dshWeb.command` | "" | Full command override, e.g. `pnpm dsh` |
-| `dshWeb.extraArgs` | [] | Extra arguments, e.g. `--trusted-host` |
-| `dshWeb.followWorkspace` | true | Restart self-started server when the first folder changes |
-| `dshWeb.stopOnExit` | true | Stop a self-started server when VS Code exits |
+| `dshWeb.extraArgs` | `[]` | Extra args, e.g. `--trusted-host` |
+| `dshWeb.followWorkspace` | `true` | Restart a self-started server when the first folder changes |
+| `dshWeb.stopOnExit` | `true` | Stop a self-started server on VS Code exit |
 
-Troubleshooting: **Output → DSH** (logs connection and protocol traffic).
+Logs: **Output → DSH**.
 
-## Troubleshooting: missing top-right icon / persistent "Chat" tab
+## Commands
 
-Two independent root causes, both fixed by the bundled one-click `fix-dsh.cmd`:
+| Command | Meaning |
+|---|---|
+| `DSH: 展开/收起侧边栏` | Open/focus the right panel (`Ctrl+Alt+D`) |
+| `DSH: 打开对话面板` | Title-bar / editor-title icon entry |
+| `DSH: 在浏览器中打开` | Open the dsh web UI |
+| `DSH: 重载侧边栏` | Reload the panel and reconnect |
+| `DSH: 重启服务` | Restart a self-started server |
 
-### Cause 1: the extension scan cache points at a deleted old-version folder
+## Troubleshooting
 
-VS Code caches its extension scan in `.vscode\extensions\extensions.json`. If a new
-version is installed by deleting the old folder, VS Code still looks for the old path
-at startup → ENOENT → the extension is marked broken and the new version in the same
-folder is **never discovered** (hence no icon).
+Two known environment issues, fixed by one click (`fix-dsh.cmd` on the Desktop, or `test/fix-cache.js` + `test/fix-state.js`; run with VS Code **fully exited**):
 
-Fix: `test\fix-cache.js` — rewrites the cache entry to the new path, drops the
-profile-level scan caches (forcing a full rescan), and repairs the placeholder icon
-path. Backups are created automatically.
+1. **Extension marked "broken" / icon never shows**: VS Code's extension scan cache (`.vscode/extensions/extensions.json`) still references a deleted old-version folder, so the new version is never discovered.
+2. **Chat tab keeps coming back / top-right icon missing**: auxiliary-bar container icons live in global storage `workbench.auxiliarybar.pinnedPanels`; per-workspace patches are ineffective and edits made while VS Code runs get overwritten on exit.
 
-### Cause 2: auxiliary-bar container icons / Chat tab persistence live in global storage
+## Security & privacy
 
-VS Code 1.136 stores auxiliary-bar container icons (title-bar / right-edge strip) in
-**global** storage `workbench.auxiliarybar.pinnedPanels`; the Chat tab's persistence
-lives there too. Patching only the per-workspace state is ineffective, and edits made
-while VS Code is running get overwritten on exit.
+- Connects only to the loopback dsh web service on `127.0.0.1`; proxies nothing.
+- Strict webview CSP (no remote scripts, no iframes); the self-written Markdown renderer disallows raw HTML by default.
+- API keys stay in your `~/.dsh`; the extension never reads or forwards them. `DSH_HOME` is pinned to `~/.dsh` — never isolated.
+- File/command access is governed solely by the Harness server's own sandbox permissions and approval policy.
 
-Fix: `test\fix-state.js` — removes Chat from the global pinned list, registers
-`dsh-aux`, hides the Chat view across all workspace DBs, and backs up every
-`state.vscdb` (`.bak-dsh`); idempotent.
+## Platform support
 
-### Usage
+Pure-JS extension (no native binaries): one VSIX for Windows / macOS / Linux. Tested on Windows + VS Code 1.136.
 
-1. **Fully exit VS Code** (all windows, including minimized);
-2. Double-click `fix-dsh.cmd` on the Desktop (it refuses to run while VS Code is open);
-3. Reopen VS Code → the blue harness icon appears top-right, Chat is gone.
+## Development & packaging
 
-## Development
-
-```
+```sh
 node test/mock-verify.js      # mock vscode API contract checks
-node test/ui-smoke.js         # jsdom render checks of the webview UI (24 checks)
-node test/protocol-smoke.js   # end-to-end against a real service (create/stream/stop/archive)
+node test/ui-smoke.js         # jsdom panel rendering (24 checks)
+node test/protocol-smoke.js   # end-to-end against a real service
 node test/bridge-e2e.js       # full bridge chain (mock vscode + real 3080)
+npx @vscode/vsce package
+pwsh -File test\fix-vsix.ps1 -Version 0.4.0  # repairs vsce's UTF-8 mangling (Windows)
 ```
+
+Protocol mapping: [docs/protocol.md](docs/protocol.md).
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT — see [LICENSE](LICENSE). DeepSeek Harness belongs to its respective owners; this extension is not affiliated with DeepSeek.

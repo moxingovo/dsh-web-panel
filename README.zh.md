@@ -1,95 +1,114 @@
 # DSH Web Panel
 
-在 VS Code 内提供 **Claude Code 风格的原生 DSH 侧边栏**:自写原生前端
-(无 iframe),复用本机已有的 dsh web 服务(默认 127.0.0.1:3080)与 `~/.dsh`,
-不引入第二个 Gateway、不修改服务端。
+[English](README.md) | **简体中文**
 
-> 非官方社区扩展,与 DeepSeek 无关。
+在 VS Code 中以 **Claude Code 风格原生侧边栏**使用 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 的 VS Code 扩展。不复刻网页、不内嵌 iframe、不引入第二个 Gateway:扩展复用你本机已有的 dsh web 服务(默认 `127.0.0.1:3080`)与 `~/.dsh`,用自写的原生前端直接与服务端协议(`POST /api/*` RPC + 双 WebSocket 下行)对话。
 
-- **入口(与 Claude Code 一致)**:右上角辅助栏的 **DeepSeek Harness 图标**(DeepSeek 蓝)——点击即调起右侧对话面板;状态栏左侧 **DSH** 显示服务状态并可开关;快捷键 `Ctrl+Alt+D`。
-- **会话**:仅显示当前工作区的会话,可新建/切换/归档/重命名/fork;上下文用量条为服务端真实 token 数据。
-- **模型/预设**:模型与推理档位下拉;预设仅在空白会话可切换(会话开始后锁定,服务端约束)。
-- **能力**:流式回复、停止、工具卡/审批卡/Todo/时间线、图片附件(vision)、`/compact` 压缩、Markdown+代码块。
-- **协议**:`POST /api/*` RPC + 双 WebSocket 下行(mux/host 帧),详见 [docs/protocol.md](docs/protocol.md)。
+> 当前为社区开发版本 `0.4.0`。协议基线对齐 deepseek-harness `0.1.0-rc.5`(详见 [docs/protocol.md](docs/protocol.md))。
+
+## 功能
+
+- **原生 VS Code 工作台**:全部交互在右侧辅助栏完成,与 Claude Code 同款入口机制;无 iframe、无 WebUI 内嵌。
+- **多重入口**:右上角标题栏图标(`editor/title` + titleBar 模式)、活动栏常驻图标(点击直接拉起右侧面板)、`Ctrl+Alt+D`、状态栏 DSH。
+- **会话与 harness 本工作区同步**:列表只显示当前工作区会话(路径大小写/斜杠归一化);新建会话按 `workspaceId` 入组,不会落进"未分组"。
+- **harness 底栏移植**:
+  - 沙箱权限药丸(`/permission` 三档:只读 / 工作区写入 / 完整访问,投影驱动、与网页端双向实时同步);
+  - 模型 / 推理档药丸(自制药丸菜单,2 秒短轮询跨端同步,点击即时打开);
+  - 预设药丸(空白会话可切换,会话开始后按服务端约束锁定);
+  - 14px 上下文占用环(harness 同款),点击展开百分比 + `~token / 窗口` + 系统/工具/消息三段拆分面板;
+  - 发送/停止单按钮:空闲 = 发送,运行中 = 停止,运行中按 Enter = 直接插入对话(steer)。
+- **流式对话**:Markdown(代码块一键复制)、推理块、工具卡/审批卡/Todo/时间线、图片附件(vision)、`/compact` 压缩、斜杠命令静默执行。
+- **消息可靠性**:事件按 seq 去重,消除重复与空消息气泡;历史折叠记录水位,直播流不再重复应用。
+- **会话管理**:归档、重命名、fork、上下文用量实时显示;标题跟随服务端投影自动更新。
+- **全中文界面 + 100% VS Code 主题变量**,深浅色主题自适应。
+
+## 界面结构
+
+```
+┌────────────────────────────────────┐
+│ ✳ DSH v0.4.0        ☰ ＋ ⚙ »      │ ← 顶栏(会话抽屉/新会话/设置/收起)
+├────────────────────────────────────┤
+│ 消息区(流式回复 / 欢迎页)          │
+├────────────────────────────────────┤
+│ ┌─ 圆角输入卡片 ─────────────────┐ │
+│ │ [输入框,Enter 发送]            │ │
+│ │ 权限 模型 推理 预设 压缩 (环) ↑ │ │ ← harness 同款卡内底栏
+│ └────────────────────────────────┘ │
+└────────────────────────────────────┘
+```
 
 ## 安装
 
-从 .vsix 安装:
+1. 从 [Releases](https://github.com/moxingovo/dsh-web-panel/releases) 下载 `dsh-webview-x.y.z.vsix`。
+2. 打开 VS Code 扩展面板(`Cmd/Ctrl+Shift+X`)。
+3. 点击右上角 `...` → **从 VSIX 安装...**,选择下载的文件。
+4. 按提示重新加载 VS Code 窗口。
 
-```
-code --install-extension dsh-webview-0.4.0.vsix
-```
+## 快速开始
 
-或自行打包(仓库根目录):
+1. 启动你的 DeepSeek Harness(桌面应用或 `dsh web --port 3080`);不启动也行,扩展可自动拉起。
+2. 打开要工作的项目文件夹。
+3. 点击右上角 **DSH 图标**(或活动栏图标 / `Ctrl+Alt+D`)打开右侧面板。
+4. 点 ☰ 选一个本工作区会话,或点 ＋ 新建;直接输入任务发送。
 
-```
-npx @vscode/vsce package
-pwsh -File test\fix-vsix.ps1   # 修复 vsce 对 package.json 中文的编码损坏
-code --install-extension dsh-webview-0.4.0.vsix
-```
+无需任何额外配置:扩展探测 3080 端口,已有实例即附着(共享你桌面 Harness 的全部会话),没有则自动启动一个(顺序:`dshWeb.command` → `dshWeb.checkout` → PATH 里的 `dsh` → `npx @deepseek-ai/dsh`)。
 
-> ⚠️ 已知:某些 Windows 环境下 `vsce package` 会把 package.json 的 UTF-8 中文
-> 转成 GBK 乱码甚至破坏 JSON。打包后务必运行 `test\fix-vsix.ps1` 重建工件。
+## 配置
 
-## 零配置启动
-
-默认:先探测 `dshWeb.port`(默认 3080)上是否已有 dsh 实例——有就 attach
-(复用现有会话);没有就自动启动一个(顺序:`dshWeb.command` → `dshWeb.checkout` →
-PATH 里的 `dsh` CLI → `npx @deepseek-ai/dsh`)。服务器以 **cwd = 当前工作区第一个文件夹**
-运行,`DSH_HOME` 强制为 `~/.dsh`(与 attach 完全一致,绝不隔离)。
-
-## 设置
-
-| 设置 | 默认 | 说明 |
+| 设置 | 默认值 | 说明 |
 |---|---|---|
-| `dshWeb.port` | 3080 | 附着/启动的端口 |
-| `dshWeb.attachExisting` | true | 优先复用已运行的实例 |
-| `dshWeb.spawnIfMissing` | true | 没有实例时自动启动 |
-| `dshWeb.checkout` | 空 | 可选:checkout 路径(用其 apps/cli/lib/bin.js 启动) |
+| `dshWeb.port` | `3080` | 附着/启动的端口 |
+| `dshWeb.attachExisting` | `true` | 优先复用已运行的实例(共享其会话) |
+| `dshWeb.spawnIfMissing` | `true` | 没有实例时自动启动 |
+| `dshWeb.checkout` | 空 | 可选:checkout 路径(用其 `apps/cli/lib/bin.js` 启动) |
 | `dshWeb.command` | 空 | 整条启动命令覆盖(如 `pnpm dsh`) |
-| `dshWeb.extraArgs` | [] | 追加参数(如 `--trusted-host`) |
-| `dshWeb.followWorkspace` | true | 自启服务器跟随工作区首文件夹变化重启 |
-| `dshWeb.stopOnExit` | true | 退出 VS Code 时停掉本扩展启动的服务器 |
+| `dshWeb.extraArgs` | `[]` | 追加参数(如 `--trusted-host`) |
+| `dshWeb.followWorkspace` | `true` | 自启服务器跟随工作区首文件夹变化重启 |
+| `dshWeb.stopOnExit` | `true` | 退出 VS Code 时停掉本扩展启动的服务器 |
 
-排错看 **Output → DSH** 频道(记录连接与协议流量)。
+排错看 **Output → DSH**(记录连接与协议流量)。
 
-## 排障:右上角图标不显示 / "聊天"标签去不掉
+## 命令
 
-两个独立根因,均已内置一键修复(`fix-dsh.cmd` 按顺序执行):
+| 命令 | 说明 |
+|---|---|
+| `DSH: 展开/收起侧边栏` | 打开/聚焦右侧对话面板(快捷键 `Ctrl+Alt+D`) |
+| `DSH: 打开对话面板` | 标题栏/编辑器标题图标入口 |
+| `DSH: 在浏览器中打开` | 打开 dsh 网页版 |
+| `DSH: 重载侧边栏` | 重新加载面板并重连服务 |
+| `DSH: 重启服务` | 重启本扩展启动的服务器 |
 
-### 根因 1:扩展扫描缓存指向已删除的旧版本目录
+## 排障
 
-VS Code 把扩展扫描结果缓存在 `.vscode\extensions\extensions.json`。若安装新版本时
-直接删除了旧版本目录,VS Code 启动时仍按缓存找旧目录 → ENOENT → 把扩展标记为
-"损坏",**同目录下的新版本永远不会被发现**(图标因此不出现)。
+两个已知环境问题的根因与一键修复(桌面 `fix-dsh.cmd`,或仓库 `test/fix-cache.js` + `test/fix-state.js`,需**完全退出 VS Code** 后运行):
 
-修复:`test\fix-cache.js` —— 把缓存条目更新为新版本路径、清除档案级扫描缓存
-(强制全量重扫)、修正 placeholder 图标路径。备份自动生成。
+1. **扩展显示"损坏" / 图标不出现**:VS Code 扩展扫描缓存(`.vscode/extensions/extensions.json`)残留旧版本目录引用,新版本永不被发现。
+2. **"聊天"标签反复出现 / 右上角图标不显示**:辅助栏容器图标存于全局存储 `workbench.auxiliarybar.pinnedPanels`,仅改工作区状态无效,且运行中修改会被退出回写覆盖。
 
-### 根因 2:辅助栏容器图标/聊天标签驻留在全局存储
+## 安全与隐私
 
-VS Code 1.136 把辅助栏容器图标(标题栏/右缘图标条)存在**全局存储**
-`workbench.auxiliarybar.pinnedPanels`,聊天标签的常驻状态也在那里;仅改工作区状态无效,
-且 VS Code 运行中修改会被退出时的内存回写覆盖。
+- 只连接 `127.0.0.1` 回环地址上的 dsh web 服务;不代理、不转发任何外部流量。
+- Webview 使用严格 CSP(无远程脚本、无 iframe);自写 Markdown 渲染器默认不支持原始 HTML。
+- API Key 等凭据始终留在你的 `~/.dsh` 中,扩展不读取、不转发;`DSH_HOME` 强制指向 `~/.dsh`,绝不隔离。
+- 文件与命令访问完全由 Harness 服务端自身的沙箱权限(只读/工作区写入/完整访问)与审批策略控制,扩展不额外放宽。
 
-修复:`test\fix-state.js` —— 从全局 pinned 列表移除聊天、登记 `dsh-aux`,聊天视图置
-隐藏(全部工作区),每个 `state.vscdb` 自动备份。
+## 平台支持
 
-### 使用
+纯 JS 扩展(无原生二进制),Windows / macOS / Linux 通用同一 VSIX;已在 Windows + VS Code 1.136 实测。
 
-1. **完全退出 VS Code**(所有窗口,含最小化);
-2. 双击桌面 `fix-dsh.cmd`(自动检测 VS Code 是否关闭);
-3. 重新打开 VS Code → 右上角出现蓝色 harness 图标,聊天不再出现。
+## 开发与打包
 
-## 开发
-
-```
-node test/mock-verify.js      # mock vscode API 验证扩展契约
-node test/ui-smoke.js         # jsdom 渲染验证 webview UI(24 项)
+```sh
+node test/mock-verify.js      # mock vscode API 扩展契约
+node test/ui-smoke.js         # jsdom 面板渲染(24 项)
 node test/protocol-smoke.js   # 真实服务端到端(建会话/流式/停止/归档)
 node test/bridge-e2e.js       # 完整桥接链路(mock vscode + 真 3080)
+npx @vscode/vsce package      # 打包
+pwsh -File test\fix-vsix.ps1 -Version 0.4.0  # 修复 vsce 中文编码(Windows 必跑)
 ```
 
-## License
+协议映射见 [docs/protocol.md](docs/protocol.md)。
 
-MIT — 见 [LICENSE](LICENSE)。
+## 许可证
+
+MIT — 见 [LICENSE](LICENSE)。DeepSeek Harness 归其版权方所有,本扩展与 DeepSeek 无关。

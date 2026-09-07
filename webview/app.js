@@ -23,6 +23,8 @@
     timelineOpen: false,
     lastSessionId: null,
     needScroll: true,
+    perm: 'auto',
+    pill: {},
   }
   const fmtTime = (ts) => {
     if (!ts) return ''
@@ -79,12 +81,11 @@
       '      <textarea class="dsh-input" rows="1" placeholder="输入消息,Enter 发送,Shift+Enter 换行"></textarea>' +
       '      <div class="composer-row">' +
       '        <div class="cc-left">' +
-      '          <button class="iconbtn" id="btnAttach" title="添加图片">&#128206;</button>' +
       '          <div class="hdr-selects">' +
-      '            <select id="permSel" class="hdr-sel pill" title="权限模式"></select>' +
-      '            <select id="modelSel" class="hdr-sel pill" title="模型"></select>' +
-      '            <select id="effortSel" class="hdr-sel pill" title="推理档位"></select>' +
-      '            <select id="presetSel" class="hdr-sel pill" title="预设(仅空白会话可切换)"></select>' +
+      '            <button class="hdr-sel pill" id="permPill" title="权限模式"></button>' +
+      '            <button class="hdr-sel pill" id="modelPill" title="模型"></button>' +
+      '            <button class="hdr-sel pill" id="effortPill" title="推理档位"></button>' +
+      '            <button class="hdr-sel pill" id="presetPill" title="预设(仅空白会话可切换)"></button>' +
       '          </div>' +
       '          <button class="iconbtn compact-btn" id="btnCompact" title="压缩会话">压缩</button>' +
       '        </div>' +
@@ -94,7 +95,6 @@
       '            <div class="cm-panel" hidden></div>' +
       '          </div>' +
       '          <button class="sendbtn" id="btnSend" title="发送">&#8593;</button>' +
-      '          <button class="sendbtn stop" id="btnStop" title="停止" hidden>&#9632;</button>' +
       '        </div>' +
       '      </div>' +
       '    </div>' +
@@ -108,34 +108,101 @@
     bindComposer()
   }
 
+  // ── harness 风格药丸菜单(替代原生 select 下拉) ──────────────────────────
+  let menuEl = null
+  function closePillMenu() {
+    if (menuEl) { menuEl.remove(); menuEl = null }
+  }
+  function pillMenu(anchor, items, onPick) {
+    closePillMenu()
+    const menu = el('div', 'pill-menu')
+    for (const it of items) {
+      const row = el('button', 'pill-item' + (it.checked ? ' checked' : ''))
+      row.appendChild(el('span', 'pill-check', it.checked ? '✓' : ''))
+      row.appendChild(el('span', 'pill-label', it.label))
+      row.appendChild(el('span', 'pill-meta', it.meta || ''))
+      row.addEventListener('click', () => {
+        closePillMenu()
+        if (it.value !== undefined) onPick(it.value, it)
+      })
+      menu.appendChild(row)
+    }
+    document.body.appendChild(menu)
+    const r = anchor.getBoundingClientRect()
+    menu.style.left = Math.max(4, Math.min(r.left, window.innerWidth - 200)) + 'px'
+    menu.style.top = Math.min(r.bottom + 3, window.innerHeight - menu.scrollHeight - 8) + 'px'
+    menuEl = menu
+    const close = (e) => {
+      if (!menu.contains(e.target) && e.target !== anchor) {
+        closePillMenu()
+        document.removeEventListener('pointerdown', close)
+      }
+    }
+    setTimeout(() => document.addEventListener('pointerdown', close), 0)
+    return menu
+  }
+  function permLabel() { return S.perm === 'plan' ? '权限:计划模式' : '权限:自动' }
+
   function bindHeader() {
     $('#btnSessions').addEventListener('click', () => { $('.dsh-sessionbar').hidden = !$('.dsh-sessionbar').hidden })
     $('#btnNewSession').addEventListener('click', () => post({ type: 'createSession', cwd: S.wsPath }))
     $('#btnSettings').addEventListener('click', () => { S.settingsOpen = !S.settingsOpen; renderSettings() })
     $('#btnCollapse').addEventListener('click', () => post({ type: 'collapse' }))
-    $('#modelSel').addEventListener('change', (e) => {
-      const i = Number(e.target.value)
-      const m = S.open && S.open.modelList ? S.open.modelList[i] : null
-      if (!m) return
-      post({ type: 'selectModel', sessionId: S.openId, provider: m.provider, model: m.model, reasoningEffort: m.reasoningEffort })
+    $('#permPill').addEventListener('click', (e) => {
+      pillMenu(e.currentTarget, [
+        { label: '自动', meta: '按预设决定,危险操作需确认', value: 'auto', checked: S.perm === 'auto' },
+        { label: '计划模式', meta: '先出计划,确认后才动手(/plan)', value: 'plan', checked: S.perm === 'plan' },
+      ], (v) => {
+        S.perm = v
+        if (S.openId) {
+          const text = v === 'plan' ? '/plan' : '/plan off'
+          post({ type: 'prompt', sessionId: S.openId, mode: 'queue', content: [{ type: 'text', text }] })
+        }
+        renderHeaderSelects()
+      })
     })
-    $('#effortSel').addEventListener('change', (e) => {
+    $('#modelPill').addEventListener('click', (e) => {
+      const o = S.open
+      if (!o || !S.openId) return
+      const list = o.modelList || []
+      const cur = currentModel()
+      pillMenu(e.currentTarget, list.map((m, i) => ({
+        label: m.name,
+        meta: m.provider,
+        value: i,
+        checked: cur && cur.provider === m.provider && cur.model === m.model,
+      })), (i) => {
+        const m = list[i]
+        if (!m) return
+        post({ type: 'selectModel', sessionId: S.openId, provider: m.provider, model: m.model, reasoningEffort: m.reasoningEffort })
+      })
+    })
+    $('#effortPill').addEventListener('click', (e) => {
+      const o = S.open
       const m = currentModel()
-      if (!m) return
-      post({ type: 'selectModel', sessionId: S.openId, provider: m.provider, model: m.model, reasoningEffort: e.target.value })
+      if (!o || !S.openId || !m) return
+      const efforts = (m.reasoning && m.reasoning.efforts) || []
+      if (!efforts.length) return
+      pillMenu(e.currentTarget, efforts.map((ef) => ({
+        label: ef.name || ef.id,
+        value: ef.id,
+        checked: m.reasoningEffort === ef.id,
+      })), (v) => {
+        post({ type: 'selectModel', sessionId: S.openId, provider: m.provider, model: m.model, reasoningEffort: v })
+      })
     })
-    $('#presetSel').addEventListener('change', (e) => {
-      const preset = e.target.value
-      if (!preset) return
-      post({ type: 'selectPreset', sessionId: S.openId, agentPreset: preset })
-    })
-    $('#permSel').addEventListener('change', (e) => {
-      // 权限模式:计划模式走 /plan 命令(harness 原生);自动=预设决定
-      const v = e.target.value
-      if (!S.openId) return
-      if (v === 'plan') post({ type: 'prompt', sessionId: S.openId, mode: 'queue', content: [{ type: 'text', text: '/plan' }] })
-      else post({ type: 'prompt', sessionId: S.openId, mode: 'queue', content: [{ type: 'text', text: '/plan off' }] })
-      e.target.value = 'auto'
+    $('#presetPill').addEventListener('click', (e) => {
+      const o = S.open
+      if (!o || !S.openId || !o.blank) return
+      const presets = (o.presets.presets || [])
+      pillMenu(e.currentTarget, presets.map((p) => ({
+        label: p.name || p.id,
+        meta: p.isDefault ? '默认' : '',
+        value: p.id,
+        checked: o.preset === p.id,
+      })), (v) => {
+        post({ type: 'selectPreset', sessionId: S.openId, agentPreset: v })
+      })
     })
     const cmRing = $('#cmRing')
     if (cmRing) {
@@ -165,17 +232,10 @@
       input.style.height = 'auto'
       input.style.height = Math.min(200, input.scrollHeight) + 'px'
     })
-    $('#btnSend').addEventListener('click', sendPrompt)
-    $('#btnStop').addEventListener('click', () => post({ type: 'cancel', sessionId: S.openId }))
-    $('#btnAttach').addEventListener('click', () => {
-      const fi = document.createElement('input')
-      fi.type = 'file'
-      fi.accept = 'image/png,image/jpeg,image/webp,image/gif'
-      fi.multiple = true
-      fi.addEventListener('change', async () => {
-        for (const f of fi.files) await addAttachment(f)
-      })
-      fi.click()
+    $('#btnSend').addEventListener('click', () => {
+      // 运行中点击 = 停止;空闲时点击 = 发送(harness 同款单按钮)
+      if (S.open && S.open.busy) post({ type: 'cancel', sessionId: S.openId })
+      else sendPrompt()
     })
     $('#btnCompact').addEventListener('click', () => post({ type: 'compact', sessionId: S.openId }))
     $('.dsh-messages').addEventListener('scroll', () => {
@@ -992,7 +1052,7 @@
       }
     }
     if (frame.type === 'host/session-status' && frame.sessionId === S.openId) {
-      if (S.open) { S.open.busy = frame.running; renderStopButton() }
+      if (S.open) { S.open.busy = frame.running; renderSendState() }
     }
     if (frame.type === 'host/session-added' || frame.type === 'host/workspace-changed' || frame.type === 'host/archived-sessions-changed') {
       post({ type: 'listSessions' })
@@ -1019,11 +1079,11 @@
       appendRow(o.rows[i])
     }
     if (ev.type === 'turn/end') {
-      renderStopButton()
+      renderSendState()
       renderContextMeter()
     }
     if (ev.type === 'assistant/message' || ev.type === 'user/message' || ev.type === 'turn/start' || ev.type === 'tool/result') {
-      renderStopButton()
+      renderSendState()
       renderContextMeter()
     }
   }
@@ -1136,12 +1196,18 @@
     // 不做乐观回显:权威 user/message 事件经 mux 流到达后渲染(已按 seq 去重,避免重复/空气泡)
   }
 
-  function renderStopButton() {
-    const stop = $('#btnStop')
+  function renderSendState() {
+    const send = $('#btnSend')
+    if (!send) return
     const busy = S.open && S.open.busy
-    stop.hidden = !busy
-    if (busy) $('.dsh-input').setAttribute('disabled', 'disabled')
-    else $('.dsh-input').removeAttribute('disabled')
+    send.classList.toggle('stop', !!busy)
+    send.innerHTML = busy ? '&#9632;' : '&#8593;'
+    send.title = busy ? '停止' : '发送'
+    const input = $('.dsh-input')
+    if (input) {
+      if (busy) input.setAttribute('placeholder', '运行中:Enter 插入对话,点击 ■ 停止')
+      else input.setAttribute('placeholder', '输入消息,Enter 发送,Shift+Enter 换行')
+    }
   }
 
   function renderQueue() {
@@ -1251,86 +1317,57 @@
   }
 
   // ── header selects (模型/推理档/预设) ─────────────────────────────────────
-  function renderHeaderSelects() {
-    const model = $('#modelSel')
-    const effort = $('#effortSel')
-    const preset = $('#presetSel')
-    const selHost = $('.hdr-selects')
+  function presetName(id) {
     const o = S.open
+    const p = o && (o.presets.presets || []).find((x) => x.id === id)
+    return p ? (p.name || p.id) : (id || '—')
+  }
+
+  function renderHeaderSelects() {
+    const perm = $('#permPill')
+    const model = $('#modelPill')
+    const effort = $('#effortPill')
+    const preset = $('#presetPill')
+    const o = S.open
+    const setLabel = (pill, text) => { if (pill) pill.textContent = text }
     if (!o) {
-      // 无会话也显示 harness 底栏元素(权限/模型/推理),预设药丸隐藏
-      if (selHost) selHost.style.display = ''
-      const perm = $('#permSel')
-      if (perm) {
-        clear(perm)
-        perm.appendChild(el('option', 'auto', '权限:自动'))
-        perm.appendChild(el('option', 'plan', '权限:计划模式'))
-        perm.value = 'auto'
-      }
+      // 无会话也显示 harness 底栏元素(权限/模型/推理),预设不可用
       const d0 = S.describe || {}
-      clear(model)
-      model.appendChild(el('option', '', [d0.provider, d0.model].filter(Boolean).join(' / ') || '模型未连接'))
+      setLabel(perm, permLabel())
+      setLabel(model, [d0.provider, d0.model].filter(Boolean).join(' / ') || '模型未连接')
       model.disabled = true
       model.title = '打开会话后可切换模型'
-      clear(effort)
-      effort.appendChild(el('option', '', d0.reasoningEffort ? '推理:' + d0.reasoningEffort : '推理:—'))
+      setLabel(effort, d0.reasoningEffort ? '推理:' + d0.reasoningEffort : '推理:—')
       effort.disabled = true
-      clear(preset)
-      preset.style.display = 'none'
+      setLabel(preset, '预设:—')
+      preset.disabled = true
       return
     }
-    if (selHost) selHost.style.display = ''
-    preset.style.display = ''
-    const perm = $('#permSel')
-    if (perm) {
-      clear(perm)
-      perm.appendChild(el('option', 'auto', '权限:自动'))
-      perm.appendChild(el('option', 'plan', '权限:计划模式'))
-      perm.value = 'auto'
-    }
-    clear(preset)
-    const defOpt = el('option', '', o.blank ? '新建会话选择预设…' : '预设:' + (o.preset || '—'))
-    defOpt.value = ''
-    preset.appendChild(defOpt)
-    for (const p of (o.presets.presets || [])) {
-      const opt = el('option', '', (p.name || p.id) + (p.isDefault ? '(默认)' : ''))
-      opt.value = p.id
-      preset.appendChild(opt)
-    }
-    preset.disabled = !o.blank
-    if (!o.blank) preset.title = '会话已开始,预设已固定(仅空白会话可切换)'
-    if (o.preset) preset.value = o.preset
-    clear(model)
+    perm.disabled = false
+    model.disabled = false
+    effort.disabled = false
+    setLabel(perm, permLabel())
     const list = o.modelList || []
-    if (!list.length) {
-      model.appendChild(el('option', '', '模型列表不可用'))
-      model.disabled = true
-    } else {
-      model.disabled = false
-      let selIdx = 0
-      list.forEach((m, i) => {
-        const opt = el('option', '', m.name)
-        opt.value = String(i)
-        model.appendChild(opt)
-        if (o.models && o.models.current && o.models.current.provider === m.provider && o.models.current.model === m.model) selIdx = i
-      })
-      model.value = String(selIdx)
-    }
-    clear(effort)
     const cur = currentModel()
+    if (cur) setLabel(model, cur.name || cur.model)
+    else setLabel(model, list.length ? '选择模型' : '模型不可用')
     const m = cur && list.find((x) => x.provider === cur.provider && x.model === cur.model)
     const efforts = (m && m.reasoning && m.reasoning.efforts) || []
-    if (!efforts.length) {
-      effort.appendChild(el('option', '', '推理档位–'))
-      effort.disabled = true
+    const curEffort = cur && cur.reasoningEffort
+    if (efforts.length) {
+      const effName = (efforts.find((e2) => e2.id === curEffort) || efforts[0])
+      setLabel(effort, '推理:' + (effName.name || effName.id))
     } else {
-      effort.disabled = false
-      for (const e of efforts) {
-        const opt = el('option', '', e.name || e.id)
-        opt.value = e.id
-        effort.appendChild(opt)
-      }
-      if (cur && cur.reasoningEffort) effort.value = cur.reasoningEffort
+      setLabel(effort, '推理:—')
+    }
+    if (o.blank) {
+      preset.disabled = false
+      preset.title = '空白会话可切换预设'
+      setLabel(preset, o.preset ? '预设:' + presetName(o.preset) : '新建会话选择预设…')
+    } else {
+      preset.disabled = true
+      preset.title = '会话已开始,预设已固定(仅空白会话可切换)'
+      setLabel(preset, '预设:' + presetName(o.preset))
     }
     renderContextMeter()
   }
@@ -1404,7 +1441,7 @@
       if (S.needScroll) msg.scrollTop = msg.scrollHeight
     }
     renderHeaderSelects()
-    renderStopButton()
+    renderSendState()
     renderQueue()
     renderContextMeter()
     renderBanner()

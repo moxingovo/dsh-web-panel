@@ -523,12 +523,17 @@ class PanelBridge {
   }
 
   async selectModel(m) {
+    const t0 = Date.now()
     try {
       const payload = { sessionId: m.sessionId, provider: m.provider, model: m.model }
       if (m.reasoningEffort) payload.reasoningEffort = m.reasoningEffort
       const value = await this.rpc('session.selectModel', payload)
+      output.appendLine('[dsh] selectModel ok ' + (Date.now() - t0) + 'ms ' + m.provider + '/' + m.model + (m.reasoningEffort ? ' effort=' + m.reasoningEffort : ''))
       this.send({ type: 'modelSelected', sessionId: m.sessionId, selected: value.selected })
-    } catch (e) { this.error('session.selectModel', e) }
+    } catch (e) {
+      output.appendLine('[dsh] selectModel FAIL ' + (Date.now() - t0) + 'ms ' + String(e && e.message || e))
+      this.error('session.selectModel', e)
+    }
   }
 
   async selectPreset(m) {

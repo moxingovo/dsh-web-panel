@@ -28,6 +28,7 @@
     permTimer: null,
     pill: {},
     silentCommand: false,
+    lastPick: null,
   }
   const fmtTime = (ts) => {
     if (!ts) return ''
@@ -62,7 +63,7 @@
     // Claude Code 风格布局:顶部细条 + 消息区 + 底部圆角输入 + 药丸选择器
     root.innerHTML =
       '<header class="dsh-header">' +
-      '  <div class="brand" title="DeepSeek Harness">&#10035; DSH <span class="brand-ver">f15</span></div>' +
+      '  <div class="brand" title="DeepSeek Harness">&#10035; DSH <span class="brand-ver">f16</span></div>' +
       '  <div class="hdr-actions">' +
       '    <button class="iconbtn" id="btnSessions" title="会话列表">&#9776;</button>' +
       '    <button class="iconbtn" id="btnNewSession" title="新会话">&#10010;</button>' +
@@ -195,6 +196,7 @@
       })), (i) => {
         const m = list[i]
         if (!m) return
+        S.lastPick = { kind: 'model', t0: Date.now() }
         // 立即乐观更新(服务端实测 25-70ms,但 UI 不应等待 ack 才反馈)
         if (S.open && S.open.models && S.open.models.current) {
           S.open.models.current = { provider: m.provider, model: m.model, reasoningEffort: cur ? cur.reasoningEffort : undefined }
@@ -218,6 +220,7 @@
         value: ef.id,
         checked: cur.reasoningEffort === ef.id,
       })), (v) => {
+        S.lastPick = { kind: 'effort', t0: Date.now() }
         // 立即乐观更新推理档
         if (cur) cur.reasoningEffort = v
         renderHeaderSelects()
@@ -385,6 +388,11 @@
         break
       case 'modelSelected':
         if (S.open && S.open.models) S.open.models.current = m.selected
+        if (S.lastPick && (S.lastPick.kind === 'model' || S.lastPick.kind === 'effort')) {
+          const ms = Date.now() - S.lastPick.t0
+          S.lastPick = null
+          if (ms > 800) pushSystemRow('切换耗时 ' + ms + 'ms(异常,超过 800ms)')
+        }
         renderHeaderSelects()
         break
       case 'presetSelected':

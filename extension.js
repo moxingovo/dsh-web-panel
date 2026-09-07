@@ -593,11 +593,11 @@ class PanelBridge {
 
   async collapse() {
     // R2: 收起右侧面板,右上角容器图标负责恢复(与 Claude Code 行为一致)
-    await vscode.commands.executeCommand('workbench.action.toggleSecondarySidebarVisibility')
+    await vscode.commands.executeCommand('workbench.action.toggleAuxiliaryBar')
   }
 
   async expandView() {
-    await vscode.commands.executeCommand('workbench.action.toggleSecondarySidebarVisibility')
+    await vscode.commands.executeCommand('workbench.action.toggleAuxiliaryBar')
     await vscode.commands.executeCommand('dshWebView.focus')
   }
 
@@ -689,7 +689,7 @@ function activate(ctx) {
   // B3 命令清单
   ctx.subscriptions.push(vscode.commands.registerCommand('dshPanel.toggle', async () => {
     // 与 Claude Code 一致:右上角图标 ↔ 右侧辅助侧边栏
-    await vscode.commands.executeCommand('workbench.action.toggleSecondarySidebarVisibility')
+    await vscode.commands.executeCommand('workbench.action.toggleAuxiliaryBar')
     await vscode.commands.executeCommand('dshWebView.focus')
   }))
   ctx.subscriptions.push(vscode.commands.registerCommand('dshPanel.openBrowser', openInBrowser))

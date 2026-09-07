@@ -170,3 +170,20 @@ button, select, textarea { font-family: inherit; color: inherit; }
 .ctx-menu { position: fixed; background: var(--dsh-input-bg); color: var(--dsh-input-fg); border: 1px solid var(--dsh-border); border-radius: 6px; padding: 3px; z-index: 50; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
 .ctx-item { display: block; width: 100%; text-align: left; background: transparent; color: inherit; border: none; padding: 3px 10px; cursor: pointer; }
 .ctx-item:hover { background: var(--dsh-hover); }
+/* ── Claude Code 风格补充 ─────────────────────────────────────── */
+.dsh-root { background: var(--dsh-bg); }
+.welcome-logo { width: 52px; height: 52px; border-radius: 10px; background: var(--dsh-hover); display: flex; align-items: center; justify-content: center; font-size: 26px; color: var(--vscode-button-background); }
+.empty-tagline { color: var(--dsh-dim); font-size: 11px; margin-top: -2px; }
+.wc-head { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 12px; }
+.wc-badge { color: var(--vscode-button-background); }
+.wc-close { margin-left: auto; background: transparent; border: none; color: var(--dsh-dim); cursor: pointer; font-size: 13px; }
+.wc-body { color: var(--dsh-fg); font-size: 11px; line-height: 1.55; margin-top: 6px; }
+.wc-sub { color: var(--dsh-dim); font-size: 10px; margin-top: 6px; }
+.cc-left { display: flex; align-items: center; gap: 5px; min-width: 0; }
+.cc-right { display: flex; align-items: center; gap: 6px; flex: none; }
+.sendbtn { width: 26px; height: 26px; border-radius: 50%; border: none; background: var(--vscode-button-background); color: var(--vscode-button-foreground); font-size: 13px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.sendbtn:hover { opacity: 0.9; }
+.sendbtn.stop { background: var(--dsh-crit); }
+.composer-row { border-top: 1px solid var(--dsh-border); padding-top: 6px; margin-top: 6px; }
+.dsh-composer { background: var(--dsh-bg); }
+.dsh-empty { gap: 10px; }

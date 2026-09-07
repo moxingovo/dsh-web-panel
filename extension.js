@@ -698,6 +698,10 @@ function activate(ctx) {
   ctx.subscriptions.push(vscode.window.registerWebviewViewProvider('dshWebView', new DshViewProvider(), {
     webviewOptions: { retainContextWhenHidden: true },
   }))
+  // 与 Claude Code 一致的双容器:右侧辅助栏(top-right 图标)同款面板
+  ctx.subscriptions.push(vscode.window.registerWebviewViewProvider('dshWebViewAux', new DshViewProvider(), {
+    webviewOptions: { retainContextWhenHidden: true },
+  }))
   // R1 迁移:旧版(dshWebPanel 编辑器标签页)序列化残留——还原即自毁,不留与代码区抢位置的 UI
   ctx.subscriptions.push(vscode.window.registerWebviewPanelSerializer('dshWebPanel', {
     deserializeWebviewPanel(panel) {

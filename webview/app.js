@@ -75,19 +75,21 @@
       '  <div class="dsh-empty" hidden></div>' +
       '  <div class="dsh-composer">' +
       '    <div class="attach-tray" hidden></div>' +
-      '    <textarea class="dsh-input" rows="1" placeholder="输入消息，Enter 发送，Shift+Enter 换行"></textarea>' +
+      '    <textarea class="dsh-input" rows="1" placeholder="输入消息,Enter 发送,Shift+Enter 换行"></textarea>' +
       '    <div class="composer-row">' +
-      '      <div class="hdr-selects">' +
-      '        <select id="modelSel" class="hdr-sel pill" title="模型"></select>' +
-      '        <select id="effortSel" class="hdr-sel pill" title="推理档位"></select>' +
-      '        <select id="presetSel" class="hdr-sel pill" title="预设(仅空白会话可切换)"></select>' +
-      '      </div>' +
-      '      <div class="ctx-meta">' +
-      '        <div class="context-meter" title="会话上下文用量"><div class="cm-bar"><div class="cm-fill"></div></div><span class="cm-label"></span></div>' +
+      '      <div class="cc-left">' +
       '        <button class="iconbtn" id="btnAttach" title="添加图片">&#128206;</button>' +
+      '        <div class="hdr-selects">' +
+      '          <select id="modelSel" class="hdr-sel pill" title="模型"></select>' +
+      '          <select id="effortSel" class="hdr-sel pill" title="推理档位"></select>' +
+      '          <select id="presetSel" class="hdr-sel pill" title="预设(仅空白会话可切换)"></select>' +
+      '        </div>' +
+      '      </div>' +
+      '      <div class="cc-right">' +
+      '        <div class="context-meter" title="会话上下文用量"><div class="cm-bar"><div class="cm-fill"></div></div><span class="cm-label"></span></div>' +
       '        <button class="iconbtn" id="btnCompact" title="压缩会话">压缩</button>' +
-      '        <button class="btn primary" id="btnSend">发送</button>' +
-      '        <button class="btn danger" id="btnStop" hidden>停止</button>' +
+      '        <button class="sendbtn" id="btnSend" title="发送">&#8593;</button>' +
+      '        <button class="sendbtn stop" id="btnStop" title="停止" hidden>&#9632;</button>' +
       '      </div>' +
       '    </div>' +
       '  </div>' +
@@ -1250,21 +1252,27 @@
     if (S.openId) { empty.hidden = true; return }
     empty.hidden = false
     clear(empty)
-    // Claude Code 风格欢迎页
-    const logo = el('div', 'empty-logo', '✳')
-    empty.appendChild(logo)
-    empty.appendChild(el('div', 'empty-title', S.wsPath ? 'DSH 助手' : 'DSH 助手'))
+    // Claude Code 风格欢迎页(居中 logo + 标题 + 提示卡)
+    empty.appendChild(el('div', 'welcome-logo'))
+    empty.appendChild(el('div', 'empty-title', 'DSH 助手'))
+    empty.appendChild(el('div', 'empty-tagline', '输入 / 或选择工具,开始对话。'))
     const card = el('div', 'welcome-card')
-    card.appendChild(el('div', 'welcome-line', S.conn !== 'connected' ? '正在连接 dsh 服务…' : '使用规划模式来回聊大的改动,开新会话前按需输入 /compact 压缩上下文。'))
+    const cardHead = el('div', 'wc-head')
+    cardHead.appendChild(el('span', 'wc-badge', '⚡'))
+    cardHead.appendChild(el('span', 'wc-title', S.conn === 'connected' ? '自动模式已启用' : '正在连接 dsh 服务…'))
+    const cardClose = el('button', 'wc-close', '×')
+    cardClose.addEventListener('click', () => { card.style.display = 'none' })
+    cardHead.appendChild(cardClose)
+    card.appendChild(cardHead)
     const d = S.describe || {}
-    card.appendChild(el('div', 'welcome-sub', '当前 ' + (d.provider || '—') + ' / ' + (d.model || '—') + (d.version ? ' · 服务 v' + d.version : '')))
+    const body = el('div', 'wc-body')
+    body.appendChild(el('span', '', 'DSH 自动处理模型调用与工具请求;危险操作会提示确认。'))
+    card.appendChild(body)
+    card.appendChild(el('div', 'wc-sub', '当前 ' + (d.provider || '—') + ' / ' + (d.model || '—') + (d.version ? ' · 服务 v' + d.version : '')))
     empty.appendChild(card)
-    const btns = el('div', 'welcome-actions')
     const btn = el('button', 'btn primary', '新会话')
     btn.addEventListener('click', () => post({ type: 'createSession', cwd: S.wsPath }))
-    btns.appendChild(btn)
-    if (S.wsPath) btns.appendChild(el('span', 'welcome-hint', '工作区:' + S.wsPath))
-    empty.appendChild(btns)
+    empty.appendChild(btn)
   }
 
   function renderAll() {

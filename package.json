@@ -61,9 +61,16 @@
       }
     ],
     "viewsContainers": {
-      "secondarySidebar": [
+      "activitybar": [
         {
           "id": "dsh",
+          "title": "DeepSeek Harness",
+          "icon": "media/dsh.svg"
+        }
+      ],
+      "secondarySidebar": [
+        {
+          "id": "dsh-aux",
           "title": "DeepSeek Harness",
           "icon": "media/dsh.svg"
         }
@@ -74,6 +81,13 @@
         {
           "type": "webview",
           "id": "dshWebView",
+          "name": "DSH 对话"
+        }
+      ],
+      "dsh-aux": [
+        {
+          "type": "webview",
+          "id": "dshWebViewAux",
           "name": "DSH 对话"
         }
       ]

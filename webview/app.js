@@ -25,6 +25,7 @@
     needScroll: true,
     perm: 'auto',
     pill: {},
+    silentCommand: false,
   }
   const fmtTime = (ts) => {
     if (!ts) return ''
@@ -59,7 +60,7 @@
     // Claude Code 风格布局:顶部细条 + 消息区 + 底部圆角输入 + 药丸选择器
     root.innerHTML =
       '<header class="dsh-header">' +
-      '  <div class="brand" title="DeepSeek Harness">&#10035; DSH <span class="brand-ver">f12</span></div>' +
+      '  <div class="brand" title="DeepSeek Harness">&#10035; DSH <span class="brand-ver">f13</span></div>' +
       '  <div class="hdr-actions">' +
       '    <button class="iconbtn" id="btnSessions" title="会话列表">&#9776;</button>' +
       '    <button class="iconbtn" id="btnNewSession" title="新会话">&#10010;</button>' +
@@ -159,6 +160,7 @@
         S.perm = v
         if (S.openId) {
           const text = v === 'plan' ? '/plan' : '/plan off'
+          S.silentCommand = true // 权限切换完全静默:无消息、无命令行、无结果行
           post({ type: 'prompt', sessionId: S.openId, mode: 'queue', content: [{ type: 'text', text }] })
         }
         renderHeaderSelects()
@@ -361,7 +363,9 @@
         try { onFrame(m.kind, m.frame) } catch (err) { console.error('[frame-error]', err && err.stack || err) }
         break
       case 'promptAccepted':
-        if (m.command && m.command.text) pushSystemRow(m.command.text)
+        // 药丸触发的计划模式切换走静默通道:不渲染任何命令行/结果行
+        if (m.command && m.command.text && !S.silentCommand) pushSystemRow(m.command.text)
+        S.silentCommand = false
         break
       case 'cancelled':
         pushSystemRow('已停止')

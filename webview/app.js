@@ -26,8 +26,6 @@
     pill: {},
     silentCommand: false,
     lastPick: null,
-    menuKind: null,
-    menuAnchor: null,
     pendingPill: null,
   }
   const fmtTime = (ts) => {
@@ -254,15 +252,11 @@
     $('#btnCollapse').addEventListener('click', () => post({ type: 'collapse' }))
     $('#permPill').addEventListener('click', (e) => buildPermMenu(e.currentTarget))
     $('#modelPill').addEventListener('click', (e) => {
-      // 立即用缓存打开菜单(零等待),后台刷新校正
-      S.menuKind = 'model'
-      S.menuAnchor = e.currentTarget
+      // 立即用缓存打开菜单(零等待);后台刷新只更新药丸标签,不重建菜单
       buildModelMenu(e.currentTarget)
       post({ type: 'refreshModels', sessionId: S.openId })
     })
     $('#effortPill').addEventListener('click', (e) => {
-      S.menuKind = 'effort'
-      S.menuAnchor = e.currentTarget
       buildEffortMenu(e.currentTarget)
       post({ type: 'refreshModels', sessionId: S.openId })
     })
@@ -451,9 +445,7 @@
           S.open.models = m.models
           S.open.modelList = flatModels(m.models)
           renderHeaderSelects()
-          // 若菜单仍开着,原地用最新数据重建(菜单内容永远是服务端最新状态)
-          if (menuEl && S.menuKind === 'model' && S.menuAnchor) { closePillMenu(); buildModelMenu(S.menuAnchor) }
-          if (menuEl && S.menuKind === 'effort' && S.menuAnchor) { closePillMenu(); buildEffortMenu(S.menuAnchor) }
+          // 绝不重建已打开的菜单:替换菜单会吞掉用户进行中的点击
           S.menuKind = null
         }
         break

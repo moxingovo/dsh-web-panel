@@ -9,7 +9,8 @@ const path = require('node:path')
 
 const EXT_DIR = path.join(process.env.USERPROFILE, '.vscode', 'extensions')
 const CACHE = path.join(EXT_DIR, 'extensions.json')
-const NEW_DIR_NAME = 'local-dsh.dsh-webview-0.3.1'
+const VER = process.argv[2] || '0.3.2'
+const NEW_DIR_NAME = 'local-dsh.dsh-webview-' + VER
 const NEW_PATH = path.join(EXT_DIR, NEW_DIR_NAME)
 const NEW_PATH_FWD = NEW_PATH.replace(/\\/g, '/')
 const NEW_EXTERNAL = 'file:///' + NEW_PATH_FWD.replace(/:/g, '%3A').replace(/\//g, '/')

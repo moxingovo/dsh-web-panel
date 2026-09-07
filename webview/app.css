@@ -219,9 +219,9 @@ button, select, textarea { font-family: inherit; color: inherit; }
 }
 .dsh-input::placeholder { color: var(--vscode-input-placeholderForeground, var(--dsh-dim)); }
 .dsh-input:focus { border-color: var(--dsh-accent); }
-.composer-row { display: flex; align-items: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
-.cc-left { display: flex; align-items: center; gap: 4px; flex: 1 1 auto; min-width: 0; flex-wrap: wrap; }
-.cc-right { display: flex; align-items: center; gap: 6px; flex: 1 1 auto; justify-content: flex-end; }
+.composer-row { display: flex; flex-direction: column; align-items: stretch; gap: 6px; margin-top: 6px; }
+.cc-left { display: flex; align-items: center; gap: 4px; min-width: 0; flex-wrap: wrap; }
+.cc-right { display: flex; align-items: center; gap: 6px; justify-content: space-between; }
 .hdr-selects { display: flex; gap: 4px; min-width: 0; flex-wrap: wrap; }
 .hdr-sel.pill {
   max-width: 96px; min-width: 44px; height: 24px; font-size: 10px;

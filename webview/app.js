@@ -213,7 +213,10 @@
       case 'describe':
         S.describe = m.describe
         S.config = m.config
+        // 服务能回 describe 即说明在运行,修正可能错过的 serverState 推送
+        if (!S.server.state || S.server.state === 'idle') S.server.state = 'attached'
         renderEmpty()
+        renderBanner()
         break
       case 'connection':
         S.conn = m.state
@@ -411,6 +414,9 @@
       S.open.skipped = 0
       foldHistoryEvents(m.events)
     }
+    // 历史折叠可能落在 turn/start 之后(turn/end 被截断)——不要因此卡亮停止按钮;
+    // 若会话确实在跑,后续 live 帧会重新置位 busy。
+    S.open.busy = false
     renderAll()
     post({ type: 'lastSession', sessionId: m.sessionId })
   }

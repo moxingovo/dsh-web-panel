@@ -304,6 +304,7 @@ class PanelBridge {
     this.connected = false
     this.muxUp = false
     this.hostUp = false
+    this.currentSessionId = null
     this.serverRoot = null // harness 服务端工作区根目录(describe.cwd),会话以它分组
     webview.onDidReceiveMessage((m) => this.onMessage(m).catch((e) => this.error('handler', e)))
   }
@@ -331,6 +332,7 @@ class PanelBridge {
       case 'prompt': return this.sendPrompt(m)
       case 'cancel': return this.sendCancel(m)
       case 'selectModel': return this.selectModel(m)
+      case 'refreshModels': return this.refreshModels(m)
       case 'selectPreset': return this.selectPreset(m)
       case 'renameSession': return this.renameSession(m)
       case 'archiveSession': return this.archiveSession(m)
@@ -473,6 +475,7 @@ class PanelBridge {
 
   async openSession(m) {
     try {
+      this.currentSessionId = m.sessionId
       const [history, models, presets] = await Promise.all([
         this.rpc('session.history', { sessionId: m.sessionId }),
         this.rpc('session.models', { sessionId: m.sessionId }).catch(() => null),
@@ -520,6 +523,15 @@ class PanelBridge {
       await this.rpc('session.cancel', { sessionId: m.sessionId })
       this.send({ type: 'cancelled', sessionId: m.sessionId })
     } catch (e) { this.error('session.cancel', e) }
+  }
+
+  async refreshModels(m) {
+    try {
+      const sid = m.sessionId || this.currentSessionId
+      if (!sid) return
+      const models = await this.rpc('session.models', { sessionId: sid })
+      this.send({ type: 'modelsRefreshed', sessionId: sid, models })
+    } catch (e) { this.error('session.models', e) }
   }
 
   async selectModel(m) {

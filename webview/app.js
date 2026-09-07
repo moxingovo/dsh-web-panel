@@ -23,12 +23,10 @@
     timelineOpen: false,
     lastSessionId: null,
     needScroll: true,
-    perm: 'auto',
-    permPending: false,
-    permTimer: null,
     pill: {},
     silentCommand: false,
     lastPick: null,
+    pendingMenu: null,
   }
   const fmtTime = (ts) => {
     if (!ts) return ''
@@ -63,7 +61,7 @@
     // Claude Code 风格布局:顶部细条 + 消息区 + 底部圆角输入 + 药丸选择器
     root.innerHTML =
       '<header class="dsh-header">' +
-      '  <div class="brand" title="DeepSeek Harness">&#10035; DSH <span class="brand-ver">f16</span></div>' +
+      '  <div class="brand" title="DeepSeek Harness">&#10035; DSH <span class="brand-ver">f18</span></div>' +
       '  <div class="hdr-actions">' +
       '    <button class="iconbtn" id="btnSessions" title="会话列表">&#9776;</button>' +
       '    <button class="iconbtn" id="btnNewSession" title="新会话">&#10010;</button>' +
@@ -86,7 +84,7 @@
       '      <div class="composer-row">' +
       '        <div class="cc-left">' +
       '          <div class="hdr-selects">' +
-      '            <button class="hdr-sel pill" id="permPill" title="权限模式"></button>' +
+      '            <button class="hdr-sel pill" id="permPill" title="沙箱权限"></button>' +
       '            <button class="hdr-sel pill" id="modelPill" title="模型"></button>' +
       '            <button class="hdr-sel pill" id="effortPill" title="推理档位"></button>' +
       '            <button class="hdr-sel pill" id="presetPill" title="预设(仅空白会话可切换)"></button>' +
@@ -110,6 +108,8 @@
     if (sbToggle) sbToggle.addEventListener('click', () => { $('.dsh-sessionbar').hidden = true })
     bindHeader()
     bindComposer()
+    // 面板每 15 秒静默同步一次服务端模型状态(harness 网页端的切换无事件推送)
+    setInterval(() => { if (S.openId) post({ type: 'refreshModels', sessionId: S.openId }) }, 15000)
   }
 
   // ── harness 风格药丸菜单(替代原生 select 下拉) ──────────────────────────
@@ -145,10 +145,91 @@
     setTimeout(() => document.addEventListener('pointerdown', close), 0)
     return menu
   }
-  function permLabel() {
-    if (S.permPending) return '权限:切换中…'
-    if (S.open && S.open.planActive) return '权限:计划模式中'
-    return '权限:自动'
+  function permCurrentLabel() {
+    const o = S.open
+    const sel = o && o.permissions
+    if (sel && sel.currentValue) return '权限:' + permName(sel.currentValue)
+    return '权限:—'
+  }
+
+  function buildModelMenu(anchor) {
+    const o = S.open
+    if (!o || !S.openId) return
+    const list = o.modelList || []
+    const cur = currentModel()
+    if (!list.length) {
+      pillMenu(anchor, [{ label: '模型列表不可用', value: undefined }], () => {})
+      return
+    }
+    pillMenu(anchor, list.map((m, i) => ({
+      label: m.name,
+      meta: m.provider,
+      value: i,
+      checked: cur && cur.provider === m.provider && cur.model === m.model,
+    })), (i) => {
+      const m = list[i]
+      if (!m) return
+      S.lastPick = { kind: 'model', t0: Date.now() }
+      // 立即乐观更新(服务端实测 25-70ms,但 UI 不应等待 ack 才反馈)
+      if (S.open && S.open.models && S.open.models.current) {
+        S.open.models.current = { provider: m.provider, model: m.model, reasoningEffort: cur ? cur.reasoningEffort : undefined }
+      }
+      renderHeaderSelects()
+      if (S.open.busy) pushSystemRow('模型已切换:' + m.name + ' — 运行中,下一轮生效')
+      // 切模型保持当前推理档(服务端默认档只在未指定时使用)
+      post({ type: 'selectModel', sessionId: S.openId, provider: m.provider, model: m.model, reasoningEffort: cur ? cur.reasoningEffort : undefined })
+    })
+  }
+
+  function buildEffortMenu(anchor) {
+    const o = S.open
+    const cur = currentModel()
+    if (!o || !S.openId || !cur) return
+    // 从模型列表条目取 reasoning.efforts(当前选中对象本身不含该字段)
+    const entry = (o.modelList || []).find((x) => x.provider === cur.provider && x.model === cur.model)
+    const efforts = (entry && entry.reasoning && entry.reasoning.efforts) || []
+    if (!efforts.length) return
+    pillMenu(anchor, efforts.map((ef) => ({
+      label: ef.name || ef.id,
+      value: ef.id,
+      checked: cur.reasoningEffort === ef.id,
+    })), (v) => {
+      S.lastPick = { kind: 'effort', t0: Date.now() }
+      // 立即乐观更新推理档
+      if (cur) cur.reasoningEffort = v
+      renderHeaderSelects()
+      post({ type: 'selectModel', sessionId: S.openId, provider: cur.provider, model: cur.model, reasoningEffort: v })
+    })
+  }
+
+  function permName(v) {
+    const known = { 'read-only': '只读', 'workspace-write': '工作区写入', 'danger-full-access': '完整访问' }
+    if (known[v]) return known[v]
+    if (/^[a-z0-9]+(-[a-z0-9]+)*$/.test(v)) return v.split('-').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
+    return v
+  }
+
+  function buildPermMenu(anchor) {
+    const o = S.open
+    if (!o || !S.openId) return
+    const sel = o.permissions || null
+    if (!sel || !sel.options || !sel.options.length) {
+      pillMenu(anchor, [{ label: '权限预设不可用(该会话预设未装权限插件)', value: undefined }], () => {})
+      return
+    }
+    pillMenu(anchor, sel.options.map((opt) => ({
+      label: permName(opt.value) || opt.name,
+      meta: opt.description || '',
+      value: opt.value,
+      checked: sel.currentValue === opt.value,
+    })), (v) => {
+      // 与 harness 一致:直接执行 /permission <preset>,投影推送回来即完成
+      if (S.openId) {
+        S.silentCommand = true
+        post({ type: 'prompt', sessionId: S.openId, mode: 'queue', content: [{ type: 'text', text: '/permission ' + v }] })
+      }
+      renderHeaderSelects()
+    })
   }
 
   function bindHeader() {
@@ -156,76 +237,15 @@
     $('#btnNewSession').addEventListener('click', () => post({ type: 'createSession', cwd: S.wsPath }))
     $('#btnSettings').addEventListener('click', () => { S.settingsOpen = !S.settingsOpen; renderSettings() })
     $('#btnCollapse').addEventListener('click', () => post({ type: 'collapse' }))
-    $('#permPill').addEventListener('click', (e) => {
-      pillMenu(e.currentTarget, [
-        { label: '自动', meta: '按预设决定,危险操作需确认', value: 'auto', checked: S.perm === 'auto' },
-        { label: '计划模式', meta: '先出计划,确认后才动手(/plan)', value: 'plan', checked: S.perm === 'plan' },
-      ], (v) => {
-        // 只提交,不本地改状态:结果以服务端 plan/mode 事件为准(标签不可骗人)
-        S.permPending = true
-        if (S.openId) {
-          const text = v === 'plan' ? '/plan' : '/plan off'
-          S.silentCommand = true // 权限切换完全静默:无消息、无命令行、无结果行
-          post({ type: 'prompt', sessionId: S.openId, mode: 'queue', content: [{ type: 'text', text }] })
-          clearTimeout(S.permTimer)
-          S.permTimer = setTimeout(() => {
-            // 服务端无 plan/mode 回执(预设不支持该命令等)时回落
-            S.permPending = false
-            renderHeaderSelects()
-          }, 5000)
-        } else {
-          S.permPending = false
-        }
-        renderHeaderSelects()
-      })
-    })
+    $('#permPill').addEventListener('click', (e) => buildPermMenu(e.currentTarget))
     $('#modelPill').addEventListener('click', (e) => {
-      const o = S.open
-      if (!o || !S.openId) return
-      const list = o.modelList || []
-      const cur = currentModel()
-      if (!list.length) {
-        pillMenu(e.currentTarget, [{ label: '模型列表不可用', value: undefined }], () => {})
-        return
-      }
-      pillMenu(e.currentTarget, list.map((m, i) => ({
-        label: m.name,
-        meta: m.provider,
-        value: i,
-        checked: cur && cur.provider === m.provider && cur.model === m.model,
-      })), (i) => {
-        const m = list[i]
-        if (!m) return
-        S.lastPick = { kind: 'model', t0: Date.now() }
-        // 立即乐观更新(服务端实测 25-70ms,但 UI 不应等待 ack 才反馈)
-        if (S.open && S.open.models && S.open.models.current) {
-          S.open.models.current = { provider: m.provider, model: m.model, reasoningEffort: cur ? cur.reasoningEffort : undefined }
-        }
-        renderHeaderSelects()
-        if (S.open.busy) pushSystemRow('模型已切换:' + m.name + ' — 运行中,下一轮生效')
-        // 切模型保持当前推理档(服务端默认档只在未指定时使用)
-        post({ type: 'selectModel', sessionId: S.openId, provider: m.provider, model: m.model, reasoningEffort: cur ? cur.reasoningEffort : undefined })
-      })
+      // 先实时同步服务端 models(harness 网页端的切换不会推送事件,只能拉取)
+      S.pendingMenu = 'model'
+      post({ type: 'refreshModels', sessionId: S.openId })
     })
     $('#effortPill').addEventListener('click', (e) => {
-      const o = S.open
-      const cur = currentModel()
-      if (!o || !S.openId || !cur) return
-      // 从模型列表条目取 reasoning.efforts(当前选中对象本身不含该字段)
-      const entry = (o.modelList || []).find((x) => x.provider === cur.provider && x.model === cur.model)
-      const efforts = (entry && entry.reasoning && entry.reasoning.efforts) || []
-      if (!efforts.length) return
-      pillMenu(e.currentTarget, efforts.map((ef) => ({
-        label: ef.name || ef.id,
-        value: ef.id,
-        checked: cur.reasoningEffort === ef.id,
-      })), (v) => {
-        S.lastPick = { kind: 'effort', t0: Date.now() }
-        // 立即乐观更新推理档
-        if (cur) cur.reasoningEffort = v
-        renderHeaderSelects()
-        post({ type: 'selectModel', sessionId: S.openId, provider: cur.provider, model: cur.model, reasoningEffort: v })
-      })
+      S.pendingMenu = 'effort'
+      post({ type: 'refreshModels', sessionId: S.openId })
     })
     $('#presetPill').addEventListener('click', (e) => {
       const o = S.open
@@ -395,6 +415,17 @@
         }
         renderHeaderSelects()
         break
+      case 'modelsRefreshed':
+        if (S.open && S.openId === m.sessionId) {
+          S.open.models = m.models
+          S.open.modelList = flatModels(m.models)
+          renderHeaderSelects()
+          // 拉取完成后再打开菜单:菜单内容永远是服务端最新状态
+          if (S.pendingMenu === 'model') { const anchor = $('#modelPill'); if (anchor) buildModelMenu(anchor) }
+          if (S.pendingMenu === 'effort') { const anchor = $('#effortPill'); if (anchor) buildEffortMenu(anchor) }
+          S.pendingMenu = null
+        }
+        break
       case 'presetSelected':
         if (S.open) S.open.preset = m.agentPreset
         renderHeaderSelects()
@@ -415,12 +446,6 @@
         renderSettings()
         break
       case 'error':
-        if (S.permPending) {
-          S.permPending = false
-          pushSystemRow('权限切换失败:' + m.message + '(该会话预设可能不支持计划模式,试试 standard 预设的会话)')
-          renderHeaderSelects()
-          break
-        }
         pushSystemRow('错误: ' + m.message)
         break
       case 'reload':
@@ -537,13 +562,13 @@
       preset: null,
       projections: m.projections ? m.projections.values || {} : {},
       projectionAsOf: m.projections ? m.projections.asOfSeq : -1,
+      permissions: (m.projections && m.projections.values && m.projections.values.permissions) || null,
       busy: false,
       queue: [],
       approvals: new Map(),
       timeline: [],
       stream: null,
       contextWindow: null,
-      planActive: false,
     }
     // 预设直接取自会话列表项(session.list 每项带 agentPreset),不依赖历史事件窗口
     const listItem = S.sessions.find((s) => s.sessionId === m.sessionId)
@@ -613,12 +638,6 @@
         rows.push({ kind: 'user', parts, ts: ev.time })
         break
       }
-      case 'plan/mode':
-        S.permPending = false
-        S.open.planActive = !!d.active
-        S.perm = d.active ? 'plan' : 'auto' // 以服务端为准
-        renderHeaderSelects()
-        break
       case 'agent-preset/selected':
         if (d && typeof d.agentPreset === 'string' && d.agentPreset) {
           S.open.preset = d.agentPreset
@@ -1166,6 +1185,7 @@
       o.title = frame.value
       renderSessionList()
     }
+    if (frame.key === 'permissions') { o.permissions = frame.value; renderHeaderSelects() }
     if (frame.key === 'imageLimits') { o.imageLimits = frame.value }
   }
 
@@ -1400,7 +1420,8 @@
     if (!o) {
       // 无会话也显示 harness 底栏元素(权限/模型/推理),预设不可用
       const d0 = S.describe || {}
-      setLabel(perm, permLabel())
+      setLabel(perm, '权限:—')
+      perm.disabled = true
       setLabel(model, [d0.provider, d0.model].filter(Boolean).join(' / ') || '模型未连接')
       model.disabled = true
       model.title = '打开会话后可切换模型'
@@ -1410,10 +1431,11 @@
       preset.disabled = true
       return
     }
-    perm.disabled = false
+    const permAvail = !!(o.permissions && o.permissions.options && o.permissions.options.length)
+    perm.disabled = !permAvail
     model.disabled = false
     effort.disabled = false
-    setLabel(perm, permLabel())
+    setLabel(perm, permCurrentLabel())
     const list = o.modelList || []
     const cur = currentModel()
     if (cur) setLabel(model, cur.name || cur.model)

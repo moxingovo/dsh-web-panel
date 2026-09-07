@@ -1193,9 +1193,6 @@
       const u = p.tokenUsage
       tokens = (u.uncachedInputTokens || 0) + (u.outputTokens || 0) + (u.cacheReadTokens || 0)
     }
-    const arc = meter.querySelector('.cm-arc')
-    const panel = meter.querySelector('.cm-panel')
-    if (!arc || !panel) return
     if (tokens === undefined || !window) {
       arc.setAttribute('stroke-dasharray', '0 100')
       arc.classList.remove('warning', 'critical')

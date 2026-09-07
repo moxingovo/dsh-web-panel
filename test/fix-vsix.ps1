@@ -4,11 +4,10 @@
 # the installed-extension files (which are known-good) so the shipped
 # artifact is always clean.
 # Usage: pwsh -File test\fix-vsix.ps1   (run from the repo root)
-param([string]$Version = '0.3.2')
+param([string]$Version = '0.4.0')
 $ErrorActionPreference = 'Stop'
 $repo = Split-Path -Parent $PSScriptRoot
 $vsix = Join-Path $repo "dsh-webview-$Version.vsix"
-$inst = Join-Path $env:USERPROFILE ".vscode\extensions\local-dsh.dsh-webview-$Version"
 if (-not (Test-Path $vsix)) { throw "vsix not found: $vsix" }
 
 $stage = Join-Path $env:TEMP 'dsx-stage'

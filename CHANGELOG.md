@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.4.0(2026-09-07)
+## 0.4.0(2026-09-07)
 
 - **Claude Code 式原生侧边栏**(替换 0.2.x 的 iframe 内嵌 WebUI):
   - 活动栏/辅助栏双入口 + 标题栏图标(`editor/title` + titleBar 模式);
@@ -12,7 +12,7 @@
 - 修复:扩展扫描缓存指向已删旧目录导致扩展损坏;全局 `workbench.auxiliarybar.pinnedPanels` 状态手术;vsce 打包中文编码损坏(`test/fix-vsix.ps1`)。
 - 一键排障:`fix-dsh.cmd`(缓存+状态双修,需完全退出 VS Code 后运行)。
 
-## v0.3.x
+## 0.3.x
 
 原生侧边栏基座:协议客户端(`POST /api/*` + 双 WebSocket 下行)、会话/消息渲染、模型/预设切换、context-meter。详见 git log。
 

@@ -29,7 +29,7 @@ if (!fs.existsSync(CACHE + '.bak-dsh')) fs.copyFileSync(CACHE, CACHE + '.bak-dsh
 const list = JSON.parse(fs.readFileSync(CACHE, 'utf8'))
 let entry = list.find((x) => x && x.identifier && x.identifier.id === 'local-dsh.dsh-webview')
 if (entry) {
-  entry.version = '0.3.1'
+  entry.version = VER
   entry.relativeLocation = NEW_DIR_NAME
   entry.location = {
     $mid: 1,
@@ -40,7 +40,7 @@ if (entry) {
     scheme: 'file',
   }
   delete entry.metadata
-  console.log('updated cache entry -> 0.3.1')
+  console.log('updated cache entry -> ' + VER)
 } else {
   list.push({
     identifier: { id: 'local-dsh.dsh-webview' },
@@ -102,4 +102,4 @@ if (fs.existsSync(gdbPath)) {
   db.close()
 }
 
-console.log('DONE — reopen VS Code; the extension should load as 0.3.1.')
+console.log('DONE — reopen VS Code; the extension should load as ' + VER + '.')

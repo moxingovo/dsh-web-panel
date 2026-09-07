@@ -28,6 +28,7 @@
     lastPick: null,
     menuKind: null,
     menuAnchor: null,
+    pendingPill: null,
   }
   const fmtTime = (ts) => {
     if (!ts) return ''
@@ -62,7 +63,7 @@
     // Claude Code 风格布局:顶部细条 + 消息区 + 底部圆角输入 + 药丸选择器
     root.innerHTML =
       '<header class="dsh-header">' +
-      '  <div class="brand" title="DeepSeek Harness">&#10035; DSH <span class="brand-ver">v0.4.0</span></div>' +
+      '  <div class="brand" title="DeepSeek Harness">&#10035; DSH <span class="brand-ver">v0.4.1</span></div>' +
       '  <div class="hdr-actions">' +
       '    <button class="iconbtn" id="btnSessions" title="会话列表">&#9776;</button>' +
       '    <button class="iconbtn" id="btnNewSession" title="新会话">&#10010;</button>' +
@@ -153,9 +154,21 @@
     return '权限:—'
   }
 
+  function noSessionMenu(anchor, label) {
+    pillMenu(anchor, [
+      { label: '还没有打开会话', meta: '药丸作用于当前打开的会话', value: undefined },
+      { label: '＋ 新建会话并继续', meta: '建在当前工作区', value: 'create' },
+    ], (v) => {
+      if (v === 'create') {
+        S.pendingPill = label
+        post({ type: 'createSession', cwd: S.wsPath })
+      }
+    })
+  }
+
   function buildModelMenu(anchor) {
     const o = S.open
-    if (!o || !S.openId) return
+    if (!o || !S.openId) return noSessionMenu(anchor, 'model')
     const list = o.modelList || []
     const cur = currentModel()
     if (!list.length) {
@@ -184,8 +197,9 @@
 
   function buildEffortMenu(anchor) {
     const o = S.open
+    if (!o || !S.openId) return noSessionMenu(anchor, 'effort')
     const cur = currentModel()
-    if (!o || !S.openId || !cur) return
+    if (!cur) return
     // 从模型列表条目取 reasoning.efforts(当前选中对象本身不含该字段)
     const entry = (o.modelList || []).find((x) => x.provider === cur.provider && x.model === cur.model)
     const efforts = (entry && entry.reasoning && entry.reasoning.efforts) || []
@@ -212,7 +226,7 @@
 
   function buildPermMenu(anchor) {
     const o = S.open
-    if (!o || !S.openId) return
+    if (!o || !S.openId) return noSessionMenu(anchor, 'perm')
     const sel = o.permissions || null
     if (!sel || !sel.options || !sel.options.length) {
       pillMenu(anchor, [{ label: '权限预设不可用(该会话预设未装权限插件)', value: undefined }], () => {})
@@ -393,6 +407,18 @@
         break
       case 'sessionOpened':
         openSessionView(m)
+        // 无会话时点药丸选了"新建会话并继续":建完自动打开对应菜单
+        if (S.pendingPill) {
+          const kind = S.pendingPill
+          S.pendingPill = null
+          setTimeout(() => {
+            const anchor = kind === 'model' ? $('#modelPill') : kind === 'effort' ? $('#effortPill') : $('#permPill')
+            if (!anchor) return
+            if (kind === 'model') buildModelMenu(anchor)
+            else if (kind === 'effort') buildEffortMenu(anchor)
+            else buildPermMenu(anchor)
+          }, 80)
+        }
         break
       case 'historyPage':
         prependHistory(m)
@@ -1423,15 +1449,14 @@
     const o = S.open
     const setLabel = (pill, text) => { if (pill) pill.textContent = text }
     if (!o) {
-      // 无会话也显示 harness 底栏元素(权限/模型/推理),预设不可用
+      // 无会话也显示 harness 底栏元素;点按会提示"新建会话并继续",故保持可点
       const d0 = S.describe || {}
       setLabel(perm, '权限:—')
-      perm.disabled = true
+      perm.title = '先打开会话'
       setLabel(model, [d0.provider, d0.model].filter(Boolean).join(' / ') || '模型未连接')
-      model.disabled = true
-      model.title = '打开会话后可切换模型'
+      model.title = '点按可选择模型(无会话时会先引导新建)'
       setLabel(effort, d0.reasoningEffort ? '推理:' + d0.reasoningEffort : '推理:—')
-      effort.disabled = true
+      effort.title = '点按可选择推理档'
       setLabel(preset, '预设:—')
       preset.disabled = true
       return

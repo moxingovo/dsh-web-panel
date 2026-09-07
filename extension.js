@@ -356,7 +356,7 @@ class PanelBridge {
     // ensure the service, then attach the protocol client and describe.
     try { await manager.ensure() } catch (e) { this.error('boot', e) }
     this.port = manager.port
-    this.send({ type: 'hello', port: this.port, version: '0.4.0' })
+    this.send({ type: 'hello', port: this.port, version: '0.4.1' })
     this.send({ type: 'workspace', path: firstWorkspacePath() })
     this.connect()
     await this.pushDescribe()

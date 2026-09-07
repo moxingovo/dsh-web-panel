@@ -1,0 +1,21 @@
+# Changelog
+
+## v0.4.0(2026-09-07)
+
+- **Claude Code 式原生侧边栏**(替换 0.2.x 的 iframe 内嵌 WebUI):
+  - 活动栏/辅助栏双入口 + 标题栏图标(`editor/title` + titleBar 模式);
+  - 会话列表与 harness 本工作区同步(`workspaceId` 建会话,正确入组);
+  - 流式对话、停止、工具卡/审批卡/Todo、Markdown、上下文占用环(harness 同款 14px 环 + 三段拆分面板);
+  - harness 底栏移植:沙箱权限药丸(`/permission`,三档:只读/工作区写入/完整访问,投影双向实时同步)、模型/推理档药丸(2 秒同步轮询 + 点击即时开菜单)、预设药丸(空白会话可切,会话开始后锁定);
+  - 发送/停止单按钮;运行中 Enter = 插入对话(steer);
+  - 消息按 seq 去重,消除重复/空消息气泡。
+- 修复:扩展扫描缓存指向已删旧目录导致扩展损坏;全局 `workbench.auxiliarybar.pinnedPanels` 状态手术;vsce 打包中文编码损坏(`test/fix-vsix.ps1`)。
+- 一键排障:`fix-dsh.cmd`(缓存+状态双修,需完全退出 VS Code 后运行)。
+
+## v0.3.x
+
+原生侧边栏基座:协议客户端(`POST /api/*` + 双 WebSocket 下行)、会话/消息渲染、模型/预设切换、context-meter。详见 git log。
+
+## v0.2.x 及更早
+
+iframe 内嵌 dsh Web GUI 版(已被 0.3.x 起替代)。

@@ -1,4 +1,4 @@
-# DSH 服务端协议速查(v0.3.0 原生侧边栏基座)
+# DSH 服务端协议速查(v0.4.0 原生侧边栏基座)
 
 > 面向 dsh-webview 扩展的协议映射说明。基线:deepseek-harness 0.1.0-rc.5
 > (apps/cli/package.json),运行中服务以 POST /api/host.describe 的 version

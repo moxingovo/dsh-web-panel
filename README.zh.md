@@ -17,7 +17,7 @@
 从 .vsix 安装:
 
 ```
-code --install-extension dsh-webview-0.3.1.vsix
+code --install-extension dsh-webview-0.4.0.vsix
 ```
 
 或自行打包(仓库根目录):
@@ -25,7 +25,7 @@ code --install-extension dsh-webview-0.3.1.vsix
 ```
 npx @vscode/vsce package
 pwsh -File test\fix-vsix.ps1   # 修复 vsce 对 package.json 中文的编码损坏
-code --install-extension dsh-webview-0.3.1.vsix
+code --install-extension dsh-webview-0.4.0.vsix
 ```
 
 > ⚠️ 已知:某些 Windows 环境下 `vsce package` 会把 package.json 的 UTF-8 中文

@@ -23,7 +23,7 @@ front-end (no iframe) that reuses your existing dsh web service
 From a released `.vsix`:
 
 ```
-code --install-extension dsh-webview-0.3.1.vsix
+code --install-extension dsh-webview-0.4.0.vsix
 ```
 
 Or build it yourself (run in the repo root):
@@ -31,7 +31,7 @@ Or build it yourself (run in the repo root):
 ```
 npx @vscode/vsce package
 pwsh -File test\fix-vsix.ps1   # repairs vsce's UTF-8 mangling of package.json
-code --install-extension dsh-webview-0.3.1.vsix
+code --install-extension dsh-webview-0.4.0.vsix
 ```
 
 > ⚠️ Known issue: on some Windows environments `vsce package` re-encodes the

@@ -62,7 +62,7 @@
     // Claude Code 风格布局:顶部细条 + 消息区 + 底部圆角输入 + 药丸选择器
     root.innerHTML =
       '<header class="dsh-header">' +
-      '  <div class="brand" title="DeepSeek Harness">&#10035; DSH <span class="brand-ver">f18</span></div>' +
+      '  <div class="brand" title="DeepSeek Harness">&#10035; DSH <span class="brand-ver">v0.4.0</span></div>' +
       '  <div class="hdr-actions">' +
       '    <button class="iconbtn" id="btnSessions" title="会话列表">&#9776;</button>' +
       '    <button class="iconbtn" id="btnNewSession" title="新会话">&#10010;</button>' +

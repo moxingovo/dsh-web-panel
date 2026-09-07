@@ -597,8 +597,7 @@ class PanelBridge {
   }
 
   async expandView() {
-    await vscode.commands.executeCommand('workbench.action.toggleAuxiliaryBar')
-    await vscode.commands.executeCommand('dshWebView.focus')
+    await vscode.commands.executeCommand('workbench.view.extension.dsh-aux')
   }
 
   async openBrowser() {
@@ -688,9 +687,8 @@ function activate(ctx) {
   ctx.subscriptions.push(output, statusBar)
   // B3 命令清单
   ctx.subscriptions.push(vscode.commands.registerCommand('dshPanel.toggle', async () => {
-    // 与 Claude Code 一致:右上角图标 ↔ 右侧辅助侧边栏
-    await vscode.commands.executeCommand('workbench.action.toggleAuxiliaryBar')
-    await vscode.commands.executeCommand('dshWebView.focus')
+    // 与 Claude Code 一致:打开右侧辅助栏容器视图(首次打开后右上角图标常驻)
+    await vscode.commands.executeCommand('workbench.view.extension.dsh-aux')
   }))
   ctx.subscriptions.push(vscode.commands.registerCommand('dshPanel.openBrowser', openInBrowser))
   ctx.subscriptions.push(vscode.commands.registerCommand('dshPanel.reload', reloadPanels))

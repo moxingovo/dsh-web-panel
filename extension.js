@@ -225,7 +225,10 @@ class ServerManager {
 
   async restart() {
     if (this.state !== 'ready' || !this.child) {
-      vscode.window.showInformationMessage('DSH server was not started by this extension. Restart it yourself, then run "DSH: Reload Sidebar".')
+      // 附着外部实例(桌面 harness)或失败态:重新探测并附着,而不是弹误导提示
+      output.appendLine('[dsh] restart requested (attached/external) — reconnecting')
+      this.setState('idle', 'reconnecting…')
+      try { await this.ensure() } catch (e) { output.appendLine('[dsh] reconnect failed: ' + e.message) }
       return
     }
     output.appendLine('[dsh] restart requested')
@@ -775,7 +778,15 @@ function activate(ctx) {
     } catch {}
   })()
   const healthTimer = setInterval(() => {
-    if (manager.state !== 'attached' || manager.starting) return
+    if (manager.starting) return
+    if (manager.state === 'error') {
+      // 失败态自愈:定期重试(如桌面 harness 重启后自动恢复)
+      output.appendLine('[dsh] health: retrying after error')
+      manager.setState('idle', 'reconnecting…')
+      manager.ensure().catch((e) => output.appendLine('[dsh] health retry failed: ' + e.message))
+      return
+    }
+    if (manager.state !== 'attached') return
     probe(manager.port).then((alive) => {
       if (!alive && manager.state === 'attached') {
         output.appendLine('[dsh] attached server stopped responding — taking over with a local instance')

@@ -654,7 +654,9 @@
     const rows = S.open.rows
     for (const entry of events) {
       foldEvent(entry.event, entry.view, rows)
-      if (typeof entry.seq === 'number' && entry.seq > (S.open.lastAppliedSeq ?? -1)) S.open.lastAppliedSeq = entry.seq
+      // seq 在 event 内部(历史条目形状为 {event:{seq,...}})
+      const seq = (entry.event && entry.event.seq) ?? entry.seq
+      if (typeof seq === 'number' && seq > (S.open.lastAppliedSeq ?? -1)) S.open.lastAppliedSeq = seq
     }
     if (S.open.stream && S.open.stream.assistant) {
       finalizeStreamingAssistant(S.open.stream.assistant)

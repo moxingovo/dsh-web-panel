@@ -210,33 +210,41 @@ button, select, textarea { font-family: inherit; color: inherit; }
 }
 .q-item select { background: var(--dsh-input-bg); color: var(--dsh-input-fg); border: 1px solid var(--dsh-border); border-radius: 4px; padding: 2px 4px; }
 
-/* ── composer (CC style bottom input) ── */
-.dsh-composer { padding: 6px 10px 8px; border-top: 1px solid var(--dsh-border); flex: none; }
-.attach-tray { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 5px; }
+/* ── composer (harness 同款:单一圆角输入卡片,控件在卡内底部) ── */
+.dsh-composer { padding: 6px 10px 8px; flex: none; }
+.composer-card {
+  border: 1px solid var(--dsh-border); border-radius: var(--dsh-radius);
+  background: var(--dsh-input-bg); overflow: hidden;
+}
+.composer-card:focus-within { border-color: var(--dsh-accent); }
+.attach-tray { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px 8px 0; }
 .attach-tray[hidden] { display: none; }
 .attach-chip { border: 1px solid var(--dsh-border); border-radius: 10px; font-size: 10px; padding: 1px 7px; display: flex; gap: 4px; align-items: center; }
 .chip-x { background: transparent; border: none; color: var(--dsh-dim); cursor: pointer; }
 .dsh-input {
-  width: 100%; resize: none; display: block;
-  background: var(--dsh-input-bg); color: var(--dsh-input-fg);
-  border: 1px solid var(--dsh-border); border-radius: var(--dsh-radius);
-  font-size: 13px; line-height: 1.45; padding: 8px 10px;
-  min-height: 40px; max-height: 180px; outline: none;
+  width: 100%; resize: none; display: block; border: none; outline: none;
+  background: transparent; color: var(--dsh-input-fg);
+  font-size: 13px; line-height: 1.45; padding: 8px 10px 2px;
+  min-height: 38px; max-height: 180px;
 }
 .dsh-input::placeholder { color: var(--vscode-input-placeholderForeground, var(--dsh-dim)); }
-.dsh-input:focus { border-color: var(--dsh-accent); }
-.composer-row { display: flex; flex-direction: column; align-items: stretch; gap: 6px; margin-top: 6px; }
-.cc-left { display: flex; align-items: center; gap: 4px; min-width: 0; flex-wrap: wrap; }
-.cc-right { display: flex; align-items: center; gap: 6px; justify-content: space-between; }
+.composer-row {
+  display: flex; align-items: center; gap: 6px;
+  padding: 4px 6px 6px 6px;
+}
+.cc-left { display: flex; align-items: center; gap: 4px; min-width: 0; flex: 1; flex-wrap: wrap; }
+.cc-right { display: flex; align-items: center; gap: 6px; flex: none; }
 .hdr-selects { display: flex; gap: 4px; min-width: 0; flex-wrap: wrap; }
 .hdr-sel.pill {
-  max-width: 96px; min-width: 44px; height: 24px; font-size: 10px;
+  max-width: 110px; min-width: 44px; height: 22px; font-size: 10px;
   background: var(--dsh-pill-bg); color: var(--dsh-fg);
-  border: 1px solid var(--dsh-border); border-radius: 12px; padding: 0 8px;
+  border: 1px solid var(--dsh-border); border-radius: 11px; padding: 0 7px;
   appearance: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; cursor: pointer;
 }
 .hdr-sel.pill:hover { background: var(--dsh-pill-hover); }
-.hdr-sel.pill:disabled { opacity: 0.5; cursor: default; }
+.hdr-sel.pill:disabled { opacity: 0.55; cursor: default; }
+.compact-btn { font-size: 10px; color: var(--dsh-dim); padding: 2px 4px; }
+.compact-btn.urgent { color: var(--dsh-crit); }
 .context-meter { position: relative; display: flex; align-items: center; }
 .cm-ring { background: transparent; border: none; cursor: pointer; padding: 2px; display: inline-flex; }
 .cm-track { fill: none; stroke: var(--vscode-editorWidget-border, color-mix(in srgb, var(--dsh-fg) 25%, transparent)); stroke-width: 2; }

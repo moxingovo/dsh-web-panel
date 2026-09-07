@@ -57,7 +57,7 @@
     // Claude Code 风格布局:顶部细条 + 消息区 + 底部圆角输入 + 药丸选择器
     root.innerHTML =
       '<header class="dsh-header">' +
-      '  <div class="brand" title="DeepSeek Harness">&#10035; DSH <span class="brand-ver">f6</span></div>' +
+      '  <div class="brand" title="DeepSeek Harness">&#10035; DSH <span class="brand-ver">f7</span></div>' +
       '  <div class="hdr-actions">' +
       '    <button class="iconbtn" id="btnSessions" title="会话列表">&#9776;</button>' +
       '    <button class="iconbtn" id="btnNewSession" title="新会话">&#10010;</button>' +
@@ -74,26 +74,28 @@
       '  <div class="dsh-messages"></div>' +
       '  <div class="dsh-empty" hidden></div>' +
       '  <div class="dsh-composer">' +
-      '    <div class="attach-tray" hidden></div>' +
-      '    <textarea class="dsh-input" rows="1" placeholder="输入消息,Enter 发送,Shift+Enter 换行"></textarea>' +
-      '    <div class="composer-row">' +
-      '      <div class="cc-left">' +
-      '        <button class="iconbtn" id="btnAttach" title="添加图片">&#128206;</button>' +
-      '        <div class="hdr-selects">' +
-      '          <select id="permSel" class="hdr-sel pill" title="权限模式"></select>' +
-      '          <select id="modelSel" class="hdr-sel pill" title="模型"></select>' +
-      '          <select id="effortSel" class="hdr-sel pill" title="推理档位"></select>' +
-      '          <select id="presetSel" class="hdr-sel pill" title="预设(仅空白会话可切换)"></select>' +
+      '    <div class="composer-card">' +
+      '      <div class="attach-tray" hidden></div>' +
+      '      <textarea class="dsh-input" rows="1" placeholder="输入消息,Enter 发送,Shift+Enter 换行"></textarea>' +
+      '      <div class="composer-row">' +
+      '        <div class="cc-left">' +
+      '          <button class="iconbtn" id="btnAttach" title="添加图片">&#128206;</button>' +
+      '          <div class="hdr-selects">' +
+      '            <select id="permSel" class="hdr-sel pill" title="权限模式"></select>' +
+      '            <select id="modelSel" class="hdr-sel pill" title="模型"></select>' +
+      '            <select id="effortSel" class="hdr-sel pill" title="推理档位"></select>' +
+      '            <select id="presetSel" class="hdr-sel pill" title="预设(仅空白会话可切换)"></select>' +
+      '          </div>' +
+      '          <button class="iconbtn compact-btn" id="btnCompact" title="压缩会话">压缩</button>' +
       '        </div>' +
-      '      </div>' +
-      '      <div class="cc-right">' +
-      '        <div class="context-meter">' +
-      '          <button class="cm-ring" id="cmRing" title="上下文占用"><svg viewBox="0 0 14 14" width="16" height="16"><circle class="cm-track" cx="7" cy="7" r="5.5"/><circle class="cm-arc" cx="7" cy="7" r="5.5" transform="rotate(-90 7 7)"/></svg></button>' +
-      '          <div class="cm-panel" hidden></div>' +
+      '        <div class="cc-right">' +
+      '          <div class="context-meter">' +
+      '            <button class="cm-ring" id="cmRing" title="上下文占用"><svg viewBox="0 0 14 14" width="15" height="15"><circle class="cm-track" cx="7" cy="7" r="5.5"/><circle class="cm-arc" cx="7" cy="7" r="5.5" transform="rotate(-90 7 7)"/></svg></button>' +
+      '            <div class="cm-panel" hidden></div>' +
+      '          </div>' +
+      '          <button class="sendbtn" id="btnSend" title="发送">&#8593;</button>' +
+      '          <button class="sendbtn stop" id="btnStop" title="停止" hidden>&#9632;</button>' +
       '        </div>' +
-      '        <button class="iconbtn" id="btnCompact" title="压缩会话">压缩</button>' +
-      '        <button class="sendbtn" id="btnSend" title="发送">&#8593;</button>' +
-      '        <button class="sendbtn stop" id="btnStop" title="停止" hidden>&#9632;</button>' +
       '      </div>' +
       '    </div>' +
       '  </div>' +

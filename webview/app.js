@@ -26,7 +26,8 @@
     pill: {},
     silentCommand: false,
     lastPick: null,
-    pendingMenu: null,
+    menuKind: null,
+    menuAnchor: null,
   }
   const fmtTime = (ts) => {
     if (!ts) return ''
@@ -108,8 +109,8 @@
     if (sbToggle) sbToggle.addEventListener('click', () => { $('.dsh-sessionbar').hidden = true })
     bindHeader()
     bindComposer()
-    // 面板每 15 秒静默同步一次服务端模型状态(harness 网页端的切换无事件推送)
-    setInterval(() => { if (S.openId) post({ type: 'refreshModels', sessionId: S.openId }) }, 15000)
+    // 面板每 2 秒静默同步一次服务端模型状态(selectModel 无推送帧,只能短轮询)
+    setInterval(() => { if (S.openId) post({ type: 'refreshModels', sessionId: S.openId }) }, 2000)
   }
 
   // ── harness 风格药丸菜单(替代原生 select 下拉) ──────────────────────────
@@ -239,12 +240,16 @@
     $('#btnCollapse').addEventListener('click', () => post({ type: 'collapse' }))
     $('#permPill').addEventListener('click', (e) => buildPermMenu(e.currentTarget))
     $('#modelPill').addEventListener('click', (e) => {
-      // 先实时同步服务端 models(harness 网页端的切换不会推送事件,只能拉取)
-      S.pendingMenu = 'model'
+      // 立即用缓存打开菜单(零等待),后台刷新校正
+      S.menuKind = 'model'
+      S.menuAnchor = e.currentTarget
+      buildModelMenu(e.currentTarget)
       post({ type: 'refreshModels', sessionId: S.openId })
     })
     $('#effortPill').addEventListener('click', (e) => {
-      S.pendingMenu = 'effort'
+      S.menuKind = 'effort'
+      S.menuAnchor = e.currentTarget
+      buildEffortMenu(e.currentTarget)
       post({ type: 'refreshModels', sessionId: S.openId })
     })
     $('#presetPill').addEventListener('click', (e) => {
@@ -420,10 +425,10 @@
           S.open.models = m.models
           S.open.modelList = flatModels(m.models)
           renderHeaderSelects()
-          // 拉取完成后再打开菜单:菜单内容永远是服务端最新状态
-          if (S.pendingMenu === 'model') { const anchor = $('#modelPill'); if (anchor) buildModelMenu(anchor) }
-          if (S.pendingMenu === 'effort') { const anchor = $('#effortPill'); if (anchor) buildEffortMenu(anchor) }
-          S.pendingMenu = null
+          // 若菜单仍开着,原地用最新数据重建(菜单内容永远是服务端最新状态)
+          if (menuEl && S.menuKind === 'model' && S.menuAnchor) { closePillMenu(); buildModelMenu(S.menuAnchor) }
+          if (menuEl && S.menuKind === 'effort' && S.menuAnchor) { closePillMenu(); buildEffortMenu(S.menuAnchor) }
+          S.menuKind = null
         }
         break
       case 'presetSelected':

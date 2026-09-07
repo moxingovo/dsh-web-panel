@@ -427,10 +427,7 @@ class PanelBridge {
   async pushDescribe() {
     try {
       const desc = await this.rpc('host.describe', {})
-      if (desc && typeof desc.cwd === 'string' && desc.cwd) this.serverRoot = desc.cwd
       this.send({ type: 'describe', describe: desc, config: settingsSnapshot() })
-      // 同步服务端工作区根目录给 webview(会话列表/新建会话以此为准,与 harness 本工作区一致)
-      this.send({ type: 'workspace', path: this.serverRoot || firstWorkspacePath() })
     } catch (e) { this.error('describe', e) }
   }
 
@@ -445,9 +442,9 @@ class PanelBridge {
         }
       }
       if (list === null) throw new Error('未连接到 dsh 服务')
-      const workspaces = await this.rpc('workspace.list', {}).catch(() => ({ archivedSessionIds: [] }))
-      const ws = this.serverRoot || firstWorkspacePath()
-      // 仅展示 harness 本工作区(=服务端工作区根目录)的会话,直接同步桌面 harness 的会话视图
+      const workspaces = await this.rpc('workspace.list', {}).catch(() => ({ archivedSessionIds: [], items: [] }))
+      // 会话列表 = VS Code 当前文件夹对应的 harness 工作区(大小写/斜杠归一化匹配)
+      const ws = firstWorkspacePath()
       const items = (ws && list.items || []).filter((s) => normPath(s.cwd) === normPath(ws))
       const match = items.length
       output.appendLine('[dsh] session.list total=' + (list.items || []).length + ' workspace=' + (ws || '(none)') + ' match=' + match)
@@ -457,10 +454,18 @@ class PanelBridge {
 
   async createSession(m) {
     try {
-      // 新会话建在 harness 本工作区(服务端工作区根目录),而不是 VS Code 目录/"未分组"
-      let cwd = m.cwd || this.serverRoot || firstWorkspacePath()
-      if (!cwd) cwd = os.homedir()
-      const value = await this.rpc('session.create', { cwd, ...(m.agentPreset ? { agentPreset: m.agentPreset } : {}) })
+      // 新会话必须落在 harness 工作区(实证:cwd 不会入组,workspaceId 才会)
+      const wsRoot = firstWorkspacePath() || os.homedir()
+      const workspaces = await this.rpc('workspace.list', {}).catch(() => ({ items: [] }))
+      let target = (workspaces.items || []).find((w) => normPath(w.path) === normPath(wsRoot))
+      if (!target) {
+        target = await this.rpc('workspace.create', { path: wsRoot }).catch(() => null)
+      }
+      const payload = {
+        ...(target ? { workspaceId: target.workspaceId } : { cwd: wsRoot }),
+        ...(m.agentPreset ? { agentPreset: m.agentPreset } : {}),
+      }
+      const value = await this.rpc('session.create', payload)
       this.send({ type: 'sessionCreated', sessionId: value.sessionId, agentPreset: value.agentPreset })
       await this.listSessions({})
     } catch (e) { this.error('session.create', e) }

@@ -175,3 +175,9 @@ button, select, textarea { font-family: inherit; color: inherit; }
 .ctx-menu { position: fixed; background: var(--dsh-input-bg); color: var(--dsh-input-fg); border: 1px solid var(--dsh-border); border-radius: 6px; padding: 3px; z-index: 50; box-shadow: 0 2px 8px rgba(0,0,0,0.3); }
 .ctx-item { display: block; width: 100%; text-align: left; background: transparent; color: inherit; border: none; padding: 3px 10px; cursor: pointer; }
 .ctx-item:hover { background: var(--dsh-hover); }
+/* narrow-panel adaptation */
+.composer-row { flex-wrap: wrap; }
+.hdr-sel.pill { max-width: 74px; min-width: 40px; font-size: 9px; }
+.cc-left { flex: 1 1 auto; }
+.cc-right { flex: 1 1 auto; justify-content: flex-end; }
+.dsh-header .brand { font-size: 11px; }

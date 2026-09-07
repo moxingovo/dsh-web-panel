@@ -693,10 +693,7 @@ function activate(ctx) {
   ctx.subscriptions.push(vscode.commands.registerCommand('dshPanel.openBrowser', openInBrowser))
   ctx.subscriptions.push(vscode.commands.registerCommand('dshPanel.reload', reloadPanels))
   ctx.subscriptions.push(vscode.commands.registerCommand('dshPanel.restartServer', () => manager.restart().catch((e) => vscode.window.showErrorMessage('DSH: ' + e.message))))
-  ctx.subscriptions.push(vscode.window.registerWebviewViewProvider('dshWebView', new DshViewProvider(), {
-    webviewOptions: { retainContextWhenHidden: true },
-  }))
-  // 与 Claude Code 一致的双容器:右侧辅助栏(top-right 图标)同款面板
+  // 仅右侧辅助栏容器(与 Claude Code 一致的右上角图标入口)
   ctx.subscriptions.push(vscode.window.registerWebviewViewProvider('dshWebViewAux', new DshViewProvider(), {
     webviewOptions: { retainContextWhenHidden: true },
   }))

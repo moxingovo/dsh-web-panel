@@ -61,13 +61,6 @@
       }
     ],
     "viewsContainers": {
-      "activitybar": [
-        {
-          "id": "dsh",
-          "title": "DeepSeek Harness",
-          "icon": "media/dsh.svg"
-        }
-      ],
       "secondarySidebar": [
         {
           "id": "dsh-aux",
@@ -77,13 +70,6 @@
       ]
     },
     "views": {
-      "dsh": [
-        {
-          "type": "webview",
-          "id": "dshWebView",
-          "name": "DSH 对话"
-        }
-      ],
       "dsh-aux": [
         {
           "type": "webview",

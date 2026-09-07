@@ -212,6 +212,8 @@
       case 'connection':
         S.conn = m.state
         renderBanner()
+        // 连接就绪后重新拉会话列表(修复时序竞态)
+        if (m.state === 'connected') post({ type: 'listSessions' })
         break
       case 'serverState':
         S.server = { state: m.state, label: m.label, error: m.error || '' }
@@ -293,10 +295,10 @@
   }
   // ── session list (A5 仅当前工作区 + A3 最近活动降序) ──────────────────────
   function workspaceSessions() {
-    const pathNorm = (p) => p ? String(p).replace(/[\\/]+$/, '').toLowerCase() : p
+    const pathNorm = (p) => p ? String(p).replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase() : p
     const ws = pathNorm(S.wsPath)
     let items = S.sessions.filter((s) => !S.archived.has(s.sessionId))
-    if (ws && S.wsPath) items = items.filter((s) => pathNorm(s.cwd) === ws)
+    if (!S.showAllSessions && ws && S.wsPath) items = items.filter((s) => pathNorm(s.cwd) === ws)
     items = items.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
     return items
   }
@@ -307,7 +309,13 @@
     const items = workspaceSessions()
     $('.sb-count').textContent = String(items.length)
     if (!items.length) {
-      const none = el('div', 'sb-empty', S.wsPath ? '本工作区还没有会话' : '没有会话(未打开工作区)')
+      const none = el('div', 'sb-empty')
+      none.appendChild(el('span', '', S.sessions.length && S.wsPath && !S.showAllSessions ? '本工作区暂无会话(其他工作区共 ' + S.sessions.length + ' 个)' : S.wsPath ? '本工作区还没有会话' : '没有会话(未打开工作区)'))
+      if (S.sessions.length && S.wsPath && !S.showAllSessions) {
+        const showAll = el('button', 'act-btn', '显示全部')
+        showAll.addEventListener('click', () => { S.showAllSessions = true; renderSessionList() })
+        none.appendChild(showAll)
+      }
       list.appendChild(none)
       return
     }
@@ -1209,25 +1217,24 @@
   function renderBanner() {
     const banner = $('.dsh-banner')
     if (!banner) return
-    const disconnected = S.conn !== 'connected'
-    const serverDown = S.server.state === 'idle' || S.server.state === 'error' || S.server.state === 'starting'
-    if (!disconnected && !serverDown) { banner.hidden = true; return }
+    const bannerUp = S.server.state === 'attached' || S.server.state === 'ready'
+    if (bannerUp && S.conn === 'connected') { banner.hidden = true; return }
     banner.hidden = false
     clear(banner)
-    if (disconnected) {
-      banner.appendChild(el('span', 'banner-text', '连接已断开,自动重连中…'))
-      const retry = el('button', 'btn', '重试')
-      retry.addEventListener('click', () => post({ type: 'boot' }))
-      banner.appendChild(retry)
+    if (!bannerUp) {
+      banner.appendChild(el('span', 'banner-text', 'dsh 服务未运行(' + S.server.label + ')' + (S.server.error ? ': ' + S.server.error : '')))
+      const open = el('button', 'btn', '打开浏览器')
+      open.addEventListener('click', () => post({ type: 'openBrowser' }))
+      banner.appendChild(open)
+      const restart = el('button', 'btn', '重启服务')
+      restart.addEventListener('click', () => post({ type: 'restartServer' }))
+      banner.appendChild(restart)
       return
     }
-    banner.appendChild(el('span', 'banner-text', 'dsh 服务未运行(' + S.server.label + ')' + (S.server.error ? ': ' + S.server.error : '')))
-    const open = el('button', 'btn', '打开浏览器')
-    open.addEventListener('click', () => post({ type: 'openBrowser' }))
-    banner.appendChild(open)
-    const restart = el('button', 'btn', '重启服务')
-    restart.addEventListener('click', () => post({ type: 'restartServer' }))
-    banner.appendChild(restart)
+    banner.appendChild(el('span', 'banner-text', '正在连接 dsh 服务(' + S.server.label + ')…'))
+    const retry = el('button', 'btn', '重试')
+    retry.addEventListener('click', () => post({ type: 'boot' }))
+    banner.appendChild(retry)
   }
 
   function renderEmpty() {
@@ -1388,6 +1395,8 @@
   // ── boot ──────────────────────────────────────────────────────────────────
   function boot() {
     bootSkeleton()
+    renderBanner()
+    renderEmpty()
     post({ type: 'boot' })
     post({ type: 'listSessions' })
     post({ type: 'lastSession' })

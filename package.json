@@ -111,8 +111,8 @@
         },
         "dshWeb.autoOpen": {
           "type": "boolean",
-          "default": true,
-          "description": "VS Code 启动时自动展开 DSH 原生侧边栏。"
+          "default": false,
+          "description": "(已废弃)是否自动展开 DSH 面板;默认不展开,点击右上角 DSH 图标才打开。"
         },
         "dshWeb.followWorkspace": {
           "type": "boolean",

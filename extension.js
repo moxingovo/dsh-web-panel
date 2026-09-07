@@ -625,7 +625,8 @@ function firstWorkspacePath() {
 }
 
 function normPath(p) {
-  return p ? String(p).replace(/[\\/]+$/, '').toLowerCase() : p
+  // 分隔符归一 + 去尾 + 小写,容忍 C:/ 与 C:\ 混用
+  return p ? String(p).replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase() : p
 }
 
 function settingsSnapshot() {
@@ -737,12 +738,7 @@ function activate(ctx) {
     })
   }, 15000)
   ctx.subscriptions.push({ dispose: () => clearInterval(healthTimer) })
-  // B2: autoOpen = 自动展开侧边栏(原为编辑器标签页)
-  if (cfg().autoOpen) {
-    setTimeout(() => {
-      vscode.commands.executeCommand('dshWebView.focus').catch(() => {})
-    }, 600)
-  }
+  // B2: 不再自动展开(与 Claude Code 一致:仅点击右上角容器图标/状态栏时打开)
 }
 
 function deactivate() {

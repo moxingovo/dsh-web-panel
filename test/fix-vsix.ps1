@@ -17,13 +17,13 @@ New-Item (Join-Path $stage 'rebuild') -ItemType Directory -Force | Out-Null
 
 Copy-Item $vsix (Join-Path $stage 'orig.zip') -Force
 Expand-Archive -Path (Join-Path $stage 'orig.zip') -DestinationPath (Join-Path $stage 'orig') -Force
-Copy-Item -Recurse (Join-Path $stage 'orig\extension') (Join-Path $stage 'rebuild\extension')
-Copy-Item -LiteralPath (Join-Path $stage 'orig\extension.vsixmanifest') -Destination (Join-Path $stage 'rebuild\extension.vsixmanifest') -Force
-Copy-Item -LiteralPath (Join-Path $stage 'orig\[Content_Types].xml') -Destination (Join-Path $stage 'rebuild\[Content_Types].xml') -Force
-Copy-Item (Join-Path $repo 'package.json') (Join-Path $stage 'rebuild\extension\package.json') -Force
+Copy-Item -Recurse (Join-Path $stage 'orig/extension') (Join-Path $stage 'rebuild/extension')
+Copy-Item -LiteralPath (Join-Path $stage 'orig/extension.vsixmanifest') -Destination (Join-Path $stage 'rebuild/extension.vsixmanifest') -Force
+Copy-Item -LiteralPath (Join-Path $stage 'orig/[Content_Types].xml') -Destination (Join-Path $stage 'rebuild/[Content_Types].xml') -Force
+Copy-Item (Join-Path $repo 'package.json') (Join-Path $stage 'rebuild/extension/package.json') -Force
 
 $out = Join-Path $stage 'rebuild.zip'
-Compress-Archive -Path (Join-Path $stage 'rebuild\*') -DestinationPath $out -Force
+Compress-Archive -Path (Join-Path $stage 'rebuild/*') -DestinationPath $out -Force
 Move-Item $out $vsix -Force
 Remove-Item $stage -Recurse -Force
 Write-Output "vsix rebuilt: $vsix"

@@ -657,6 +657,20 @@ class DshViewProvider {
   }
 }
 
+// 活动栏常驻图标(与 Claude Code 同款做法):点击即拉起右侧对话面板。
+// 本 VS Code 构建(1.136)不渲染 secondarySidebar 容器图标(CC 的 doesNotSupport
+// SecondarySidebar 上下文即为真),常驻入口只能走活动栏。
+class DshLauncherProvider {
+  resolveWebviewView(view) {
+    view.webview.options = { enableScripts: false }
+    view.webview.html = '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body style="padding:10px;margin:0;font-family:var(--vscode-font-family);font-size:12px;color:var(--vscode-foreground);background:var(--vscode-sideBar-background)">DeepSeek Harness<div style="opacity:.65;margin-top:6px">对话面板已打开在右侧。</div></body></html>'
+    // 打开右侧辅助栏中的 DSH 视图(与点击 CC 图标打开右侧对话一致)
+    setTimeout(() => {
+      vscode.commands.executeCommand('workbench.view.extension.dsh-aux').catch(() => {})
+    }, 50)
+  }
+}
+
 async function reloadPanels() {
   if (manager.state === 'attached') {
     const alive = await probe(manager.port)
@@ -697,6 +711,8 @@ function activate(ctx) {
   ctx.subscriptions.push(vscode.window.registerWebviewViewProvider('dshWebViewAux', new DshViewProvider(), {
     webviewOptions: { retainContextWhenHidden: true },
   }))
+  // 活动栏常驻图标(本构建不渲染辅助栏容器图标;活动栏是唯一常驻入口)
+  ctx.subscriptions.push(vscode.window.registerWebviewViewProvider('dshLauncher', new DshLauncherProvider()))
   // R1 迁移:旧版(dshWebPanel 编辑器标签页)序列化残留——还原即自毁,不留与代码区抢位置的 UI
   ctx.subscriptions.push(vscode.window.registerWebviewPanelSerializer('dshWebPanel', {
     deserializeWebviewPanel(panel) {

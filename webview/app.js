@@ -59,13 +59,13 @@
       '<header class="dsh-header">' +
       '  <div class="brand" title="DeepSeek Harness">&#10035; DSH</div>' +
       '  <div class="hdr-actions">' +
+      '    <button class="iconbtn" id="btnSessions" title="会话列表">&#9776;</button>' +
       '    <button class="iconbtn" id="btnNewSession" title="新会话">&#10010;</button>' +
-      '    <button class="iconbtn" id="btnTimeline" title="时间线">&#9201;</button>' +
       '    <button class="iconbtn" id="btnSettings" title="设置">&#9881;</button>' +
       '    <button class="iconbtn" id="btnCollapse" title="收起面板">&#187;</button>' +
       '  </div>' +
       '</header>' +
-      '<section class="dsh-sessionbar collapsed">' +
+      '<section class="dsh-sessionbar" hidden>' +
       '  <div class="sb-head"><span class="sb-title">会话</span><span class="sb-count"></span><button class="sb-toggle" title="展开/折叠会话列表">&#9662;</button></div>' +
       '  <div class="sb-list"></div>' +
       '</section>' +
@@ -97,14 +97,14 @@
       '<aside class="dsh-settings" hidden></aside>'
     app.appendChild(root)
     const sbToggle = $('.sb-toggle')
-    if (sbToggle) sbToggle.addEventListener('click', () => { $('.dsh-sessionbar').classList.toggle('collapsed') })
+    if (sbToggle) sbToggle.addEventListener('click', () => { $('.dsh-sessionbar').hidden = true })
     bindHeader()
     bindComposer()
   }
 
   function bindHeader() {
+    $('#btnSessions').addEventListener('click', () => { $('.dsh-sessionbar').hidden = !$('.dsh-sessionbar').hidden })
     $('#btnNewSession').addEventListener('click', () => post({ type: 'createSession', cwd: S.wsPath }))
-    $('#btnTimeline').addEventListener('click', () => { S.timelineOpen = !S.timelineOpen; renderTimelinePanel() })
     $('#btnSettings').addEventListener('click', () => { S.settingsOpen = !S.settingsOpen; renderSettings() })
     $('#btnCollapse').addEventListener('click', () => post({ type: 'collapse' }))
     $('#modelSel').addEventListener('change', (e) => {
@@ -1229,6 +1229,15 @@
   }
 
   // ── banner / empty / settings / timeline ──────────────────────────────────
+  // CC 风格:未打开会话时,输入区只保留输入框+发送,隐藏附件/压缩/用量等控件
+  function updateComposerVisibility() {
+    const has = !!S.openId
+    for (const sel of ['#btnAttach', '#btnCompact', '.context-meter']) {
+      const e = $(sel)
+      if (e) e.style.display = has ? '' : 'none'
+    }
+  }
+
   function renderBanner() {
     const banner = $('.dsh-banner')
     if (!banner) return
@@ -1299,6 +1308,7 @@
     renderContextMeter()
     renderBanner()
     renderSessionList()
+    updateComposerVisibility()
   }
 
   function prependHistory(m) {

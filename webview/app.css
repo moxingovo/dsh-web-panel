@@ -24,7 +24,8 @@
   --dsh-radius-sm: 4px;
 }
 * { box-sizing: border-box; }
-html, body { height: 100%; margin: 0; padding: 0; }
+html, body, #app { height: 100%; margin: 0; padding: 0; }
+#app { display: flex; flex-direction: column; min-height: 0; }
 body {
   font-family: var(--vscode-chat-font-family, var(--vscode-font-family));
   font-size: var(--vscode-chat-font-size, 13px);
@@ -53,15 +54,19 @@ button, select, textarea { font-family: inherit; color: inherit; }
 }
 .iconbtn:hover { background: var(--vscode-toolbar-hoverBackground, var(--dsh-hover)); color: var(--dsh-fg); }
 
-/* ── session bar ── */
-.dsh-sessionbar { border-bottom: 1px solid var(--dsh-border); flex: none; max-height: 180px; overflow: hidden; display: flex; flex-direction: column; }
-.dsh-sessionbar.collapsed { max-height: none; }
+/* ── session drawer (CC style: behind a header button, not inline) ── */
+.dsh-sessionbar {
+  position: absolute; top: 34px; left: 0; right: 0; bottom: 0; z-index: 6;
+  background: var(--dsh-bg); border-top: 1px solid var(--dsh-border);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.dsh-sessionbar[hidden] { display: none; }
 .dsh-sessionbar.collapsed .sb-list { display: none; }
-.sb-head { display: flex; align-items: center; gap: 6px; padding: 5px 10px 4px; }
+.sb-head { display: flex; align-items: center; gap: 6px; padding: 6px 10px 5px; }
 .sb-title { color: var(--dsh-dim); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
 .sb-count { color: var(--dsh-dim); font-size: 10px; }
 .sb-toggle { margin-left: auto; background: transparent; border: none; color: var(--dsh-dim); cursor: pointer; padding: 0 2px; font-size: 11px; }
-.sb-list { max-height: 140px; overflow-y: auto; padding-bottom: 3px; }
+.sb-list { flex: 1; overflow-y: auto; padding-bottom: 3px; }
 .sb-row {
   display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 12px;
   cursor: pointer; border-left: 2px solid transparent; min-width: 0;

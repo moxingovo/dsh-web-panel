@@ -47,6 +47,7 @@ button, select, textarea { font-family: inherit; color: inherit; }
   background: var(--dsh-bg);
 }
 .dsh-header .brand { font-weight: 700; font-size: 13px; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.brand-ver { color: var(--dsh-dim); font-size: 9px; font-weight: 400; opacity: 0.7; }
 .hdr-actions { display: flex; gap: 1px; flex: none; }
 .iconbtn {
   background: transparent; color: var(--dsh-dim); border: none; border-radius: var(--dsh-radius-sm);

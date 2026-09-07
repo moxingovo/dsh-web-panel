@@ -57,7 +57,7 @@
     // Claude Code 风格布局:顶部细条 + 消息区 + 底部圆角输入 + 药丸选择器
     root.innerHTML =
       '<header class="dsh-header">' +
-      '  <div class="brand" title="DeepSeek Harness">&#10035; DSH</div>' +
+      '  <div class="brand" title="DeepSeek Harness">&#10035; DSH <span class="brand-ver">f6</span></div>' +
       '  <div class="hdr-actions">' +
       '    <button class="iconbtn" id="btnSessions" title="会话列表">&#9776;</button>' +
       '    <button class="iconbtn" id="btnNewSession" title="新会话">&#10010;</button>' +
@@ -1173,7 +1173,17 @@
   function renderContextMeter() {
     const o = S.open
     const meter = $('.context-meter')
-    if (!meter || !o) return
+    if (!meter) return
+    const arc = meter.querySelector('.cm-arc')
+    const panel = meter.querySelector('.cm-panel')
+    if (!arc || !panel) return
+    if (!o) {
+      arc.setAttribute('stroke-dasharray', '0 100')
+      arc.classList.remove('warning', 'critical')
+      meter.title = '上下文用量(打开会话后显示)'
+      if (!panel.hidden) panel.hidden = true
+      return
+    }
     const p = o.projections || {}
     const pressure = p.contextPressure || {}
     const breakdown = p.contextBreakdown || null
@@ -1249,13 +1259,29 @@
     const selHost = $('.hdr-selects')
     const o = S.open
     if (!o) {
-      if (selHost) selHost.style.display = 'none'
-      model.innerHTML = ''
-      effort.innerHTML = ''
-      preset.innerHTML = ''
+      // 无会话也显示 harness 底栏元素(权限/模型/推理),预设药丸隐藏
+      if (selHost) selHost.style.display = ''
+      const perm = $('#permSel')
+      if (perm) {
+        clear(perm)
+        perm.appendChild(el('option', 'auto', '权限:自动'))
+        perm.appendChild(el('option', 'plan', '权限:计划模式'))
+        perm.value = 'auto'
+      }
+      const d0 = S.describe || {}
+      clear(model)
+      model.appendChild(el('option', '', [d0.provider, d0.model].filter(Boolean).join(' / ') || '模型未连接'))
+      model.disabled = true
+      model.title = '打开会话后可切换模型'
+      clear(effort)
+      effort.appendChild(el('option', '', d0.reasoningEffort ? '推理:' + d0.reasoningEffort : '推理:—'))
+      effort.disabled = true
+      clear(preset)
+      preset.style.display = 'none'
       return
     }
     if (selHost) selHost.style.display = ''
+    preset.style.display = ''
     const perm = $('#permSel')
     if (perm) {
       clear(perm)
@@ -1371,6 +1397,9 @@
     if (!o || !o.rows.length) {
       renderEmpty()
     } else {
+      // 开会话且有消息:欢迎/空态必须隐藏(否则与消息列表同屏各占一半)
+      const emptyEl = $('.dsh-empty')
+      if (emptyEl) emptyEl.hidden = true
       msg.hidden = false
       for (const row of o.rows) msg.appendChild(renderRow(row))
       if (S.needScroll) msg.scrollTop = msg.scrollHeight

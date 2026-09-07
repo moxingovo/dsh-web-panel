@@ -91,8 +91,8 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
     if (!arc) return false
     return parseFloat(arc.getAttribute('stroke-dasharray') || '0') > 0
   })(), 'ring dasharray set')
-  ok('preset select disabled (session started)', $('#presetSel').disabled === true)
-  ok('stop hidden (idle)', $('#btnStop').hidden === true)
+  ok('preset pill locked after start', $('#presetPill').disabled === true && $('#presetPill').textContent.includes('预设:'))
+  ok('send idle (no stop state)', !$('#btnSend').classList.contains('stop'))
 
   // live streaming patch
   post({ type: 'frame', kind: 'mux', frame: { type: 'session/event', sessionId: 's1', rpcId: 'r1', event: { type: 'turn/start', seq: 13, time: Date.now(), data: { turn: 2 } } } })
@@ -101,7 +101,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
   post({ type: 'frame', kind: 'mux', frame: { type: 'session/event', sessionId: 's1', rpcId: 'r4', event: { type: 'assistant/chunk', seq: 16, time: Date.now(), data: { turn: 2, step: 1, chunk: { type: 'block-end', index: 0, block: { type: 'reasoning', text: 'think…' } } } } } })
   await sleep(50)
   ok('live reasoning streamed', $$('.reasoning.done').length >= 1 && $$('.reasoning')[0].textContent.includes('think'), $$('.reasoning').length)
-  ok('turn/start shows stop', $('#btnStop').hidden === false)
+  ok('turn/start switches send to stop', $('#btnSend').classList.contains('stop'))
 
   // approval respond via live frame
   post({ type: 'frame', kind: 'mux', frame: { type: 'approval/requested', sessionId: 's1', rpcId: 'ap-rpc', approvalId: 'ap-live', toolName: 'shell', reason: 'run cmd' } })
@@ -124,7 +124,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
   ok('prompt mode steer while busy', prompt && prompt.mode === 'steer')
 
   // cancel post
-  $('#btnStop').dispatchEvent(new window.Event('click'))
+  $('#btnSend').dispatchEvent(new window.Event('click'))
   await sleep(30)
   ok('cancel posted', sentOf('cancel').length >= 1 && sentOf('cancel').pop().sessionId === 's1')
 

@@ -24,6 +24,8 @@
     lastSessionId: null,
     needScroll: true,
     perm: 'auto',
+    permPending: false,
+    permTimer: null,
     pill: {},
     silentCommand: false,
   }
@@ -60,7 +62,7 @@
     // Claude Code 风格布局:顶部细条 + 消息区 + 底部圆角输入 + 药丸选择器
     root.innerHTML =
       '<header class="dsh-header">' +
-      '  <div class="brand" title="DeepSeek Harness">&#10035; DSH <span class="brand-ver">f13</span></div>' +
+      '  <div class="brand" title="DeepSeek Harness">&#10035; DSH <span class="brand-ver">f14</span></div>' +
       '  <div class="hdr-actions">' +
       '    <button class="iconbtn" id="btnSessions" title="会话列表">&#9776;</button>' +
       '    <button class="iconbtn" id="btnNewSession" title="新会话">&#10010;</button>' +
@@ -143,8 +145,9 @@
     return menu
   }
   function permLabel() {
+    if (S.permPending) return '权限:切换中…'
     if (S.open && S.open.planActive) return '权限:计划模式中'
-    return S.perm === 'plan' ? '权限:计划模式' : '权限:自动'
+    return '权限:自动'
   }
 
   function bindHeader() {
@@ -157,11 +160,20 @@
         { label: '自动', meta: '按预设决定,危险操作需确认', value: 'auto', checked: S.perm === 'auto' },
         { label: '计划模式', meta: '先出计划,确认后才动手(/plan)', value: 'plan', checked: S.perm === 'plan' },
       ], (v) => {
-        S.perm = v
+        // 只提交,不本地改状态:结果以服务端 plan/mode 事件为准(标签不可骗人)
+        S.permPending = true
         if (S.openId) {
           const text = v === 'plan' ? '/plan' : '/plan off'
           S.silentCommand = true // 权限切换完全静默:无消息、无命令行、无结果行
           post({ type: 'prompt', sessionId: S.openId, mode: 'queue', content: [{ type: 'text', text }] })
+          clearTimeout(S.permTimer)
+          S.permTimer = setTimeout(() => {
+            // 服务端无 plan/mode 回执(预设不支持该命令等)时回落
+            S.permPending = false
+            renderHeaderSelects()
+          }, 5000)
+        } else {
+          S.permPending = false
         }
         renderHeaderSelects()
       })
@@ -395,6 +407,7 @@
         renderSettings()
         break
       case 'error':
+        if (S.permPending) { S.permPending = false; renderHeaderSelects() }
         pushSystemRow('错误: ' + m.message)
         break
       case 'reload':
@@ -588,8 +601,9 @@
         break
       }
       case 'plan/mode':
+        S.permPending = false
         S.open.planActive = !!d.active
-        if (!d.active && S.perm === 'plan') S.perm = 'auto' // 计划模式关闭后回落到自动
+        S.perm = d.active ? 'plan' : 'auto' // 以服务端为准
         renderHeaderSelects()
         break
       case 'agent-preset/selected':

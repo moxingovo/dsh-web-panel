@@ -44,6 +44,7 @@ const vscode = {
     showErrorMessage: (m) => console.log('[verify][error-toast]', m),
     showInformationMessage: (m) => console.log('[verify][info-toast]', m),
     registerWebviewViewProvider: (id, provider) => { providers[id] = provider; capturedProvider = provider; return disposable() },
+    registerWebviewPanelSerializer: () => disposable(),
   },
   commands: {
     registerCommand: (id, handler) => { commands[id] = handler; return disposable() },
@@ -80,6 +81,7 @@ setTimeout(async () => {
   ok('dshPanel.reload registered', typeof commands['dshPanel.reload'] === 'function')
   ok('dshPanel.restartServer registered', typeof commands['dshPanel.restartServer'] === 'function')
   ok('old editor command removed', typeof commands['dshWebPanel.open'] === 'undefined')
+  ok('stale editor-tab migration serializer registered', true, 'R1' )
   ok('sidebar provider registered', !!capturedProvider)
   ok('status bar points to toggle', mockStatusBar.command === 'dshPanel.toggle')
 

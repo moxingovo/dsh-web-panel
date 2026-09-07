@@ -378,6 +378,8 @@ class PanelBridge {
     })
     output.appendLine('[dsh] protocol client on ' + urlOf(this.port))
     client.open()
+    // 主动首次拉取:避免 webview 的 listSessions 早于客户端连接而丢失
+    setTimeout(() => { this.pushDescribe().catch(() => {}); this.listSessions({}).catch(() => {}) }, 1200)
   }
 
   sendFrame(kind, frame) {
@@ -430,8 +432,19 @@ class PanelBridge {
 
   async listSessions(m) {
     try {
-      const list = await this.rpc('session.list', {})
+      // 客户端可能尚未就绪(webview 消息先于 boot 完成)——带重试等待
+      let list = null
+      for (let i = 0; i < 5; i++) {
+        try { list = await this.rpc('session.list', {}); break } catch (err) {
+          if (!this.client) { await sleep(800); continue }
+          throw err
+        }
+      }
+      if (list === null) throw new Error('未连接到 dsh 服务')
       const workspaces = await this.rpc('workspace.list', {}).catch(() => ({ items: [], archivedSessionIds: [] }))
+      const ws = firstWorkspacePath()
+      const match = (ws && list.items || []).filter((s) => normPath(s.cwd) === normPath(ws)).length
+      output.appendLine('[dsh] session.list total=' + (list.items || []).length + ' workspace=' + (ws || '(none)') + ' match=' + match)
       this.send({ type: 'sessionList', items: list.items || [], archivedIds: workspaces.archivedSessionIds || [] })
     } catch (e) { this.error('session.list', e) }
   }
@@ -579,11 +592,12 @@ class PanelBridge {
   }
 
   async collapse() {
-    await vscode.commands.executeCommand('workbench.action.collapseSideBar')
+    // R2: 只收起右侧面板,右上角容器图标负责恢复
+    await vscode.commands.executeCommand('workbench.action.toggleSecondarySidebarVisibility')
   }
 
   async expandView() {
-    await vscode.commands.executeCommand('workbench.action.toggleSidebarVisibility')
+    await vscode.commands.executeCommand('workbench.action.toggleSecondarySidebarVisibility')
     await vscode.commands.executeCommand('dshWebView.focus')
   }
 
@@ -608,6 +622,10 @@ class PanelBridge {
 
 function firstWorkspacePath() {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null
+}
+
+function normPath(p) {
+  return p ? String(p).replace(/[\\/]+$/, '').toLowerCase() : p
 }
 
 function settingsSnapshot() {
@@ -669,7 +687,8 @@ function activate(ctx) {
   ctx.subscriptions.push(output, statusBar)
   // B3 命令清单
   ctx.subscriptions.push(vscode.commands.registerCommand('dshPanel.toggle', async () => {
-    await vscode.commands.executeCommand('workbench.action.toggleSidebarVisibility')
+    // Claude Code 模式:右上角图标 ↔ 右侧辅助侧边栏
+    await vscode.commands.executeCommand('workbench.action.toggleSecondarySidebarVisibility')
     await vscode.commands.executeCommand('dshWebView.focus')
   }))
   ctx.subscriptions.push(vscode.commands.registerCommand('dshPanel.openBrowser', openInBrowser))
@@ -677,6 +696,13 @@ function activate(ctx) {
   ctx.subscriptions.push(vscode.commands.registerCommand('dshPanel.restartServer', () => manager.restart().catch((e) => vscode.window.showErrorMessage('DSH: ' + e.message))))
   ctx.subscriptions.push(vscode.window.registerWebviewViewProvider('dshWebView', new DshViewProvider(), {
     webviewOptions: { retainContextWhenHidden: true },
+  }))
+  // R1 迁移:旧版(dshWebPanel 编辑器标签页)序列化残留——还原即自毁,不留与代码区抢位置的 UI
+  ctx.subscriptions.push(vscode.window.registerWebviewPanelSerializer('dshWebPanel', {
+    deserializeWebviewPanel(panel) {
+      output.appendLine('[dsh] migrating: disposing stale editor-tab DSH panel (R1)')
+      try { panel.dispose() } catch {}
+    },
   }))
   ctx.subscriptions.push({ dispose: () => { for (const b of bridges) b.dispose(); bridges.clear() } })
   ctx.subscriptions.push(vscode.workspace.onDidChangeWorkspaceFolders(() => {

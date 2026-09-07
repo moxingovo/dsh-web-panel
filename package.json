@@ -54,7 +54,7 @@
       }
     ],
     "viewsContainers": {
-      "activitybar": [
+      "secondarySidebar": [
         {
           "id": "dsh",
           "title": "DeepSeek Harness",
@@ -67,7 +67,7 @@
         {
           "type": "webview",
           "id": "dshWebView",
-          "name": "DSH 原生侧边栏"
+          "name": "DSH 对话"
         }
       ]
     },

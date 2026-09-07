@@ -54,18 +54,21 @@
     const app = $('#app')
     clear(app)
     const root = el('div', 'dsh-root')
+    // Claude Code 风格布局:顶部细条 + 消息区 + 底部圆角输入 + 药丸选择器
     root.innerHTML =
       '<header class="dsh-header">' +
-      '  <div class="brand" title="DeepSeek Harness 原生侧边栏">DSH</div>' +
-      '  <div class="hdr-selects"></div>' +
+      '  <div class="brand" title="DeepSeek Harness">&#10035; DSH</div>' +
       '  <div class="hdr-actions">' +
       '    <button class="iconbtn" id="btnNewSession" title="新会话">&#10010;</button>' +
       '    <button class="iconbtn" id="btnTimeline" title="时间线">&#9201;</button>' +
       '    <button class="iconbtn" id="btnSettings" title="设置">&#9881;</button>' +
-      '    <button class="iconbtn" id="btnCollapse" title="收起侧边栏">&#187;</button>' +
+      '    <button class="iconbtn" id="btnCollapse" title="收起面板">&#187;</button>' +
       '  </div>' +
       '</header>' +
-      '<section class="dsh-sessionbar"><div class="sb-head"><span>会话</span><span class="sb-count"></span></div><div class="sb-list"></div></section>' +
+      '<section class="dsh-sessionbar">' +
+      '  <div class="sb-head"><span class="sb-title">会话</span><span class="sb-count"></span><button class="sb-toggle" title="展开/折叠会话列表">&#9662;</button></div>' +
+      '  <div class="sb-list"></div>' +
+      '</section>' +
       '<main class="dsh-main">' +
       '  <div class="dsh-banner" hidden></div>' +
       '  <div class="dsh-messages"></div>' +
@@ -74,21 +77,25 @@
       '    <div class="attach-tray" hidden></div>' +
       '    <textarea class="dsh-input" rows="1" placeholder="输入消息，Enter 发送，Shift+Enter 换行"></textarea>' +
       '    <div class="composer-row">' +
-      '      <div class="context-meter" title="会话上下文用量"><div class="cm-bar"><div class="cm-fill"></div></div><span class="cm-label"></span></div>' +
-      '      <button class="iconbtn" id="btnAttach" title="添加图片">&#128206;</button>' +
-      '      <button class="iconbtn" id="btnCompact" title="压缩会话">压缩</button>' +
-      '      <button class="btn primary" id="btnSend">发送</button>' +
-      '      <button class="btn danger" id="btnStop" hidden>停止</button>' +
+      '      <div class="hdr-selects">' +
+      '        <select id="modelSel" class="hdr-sel pill" title="模型"></select>' +
+      '        <select id="effortSel" class="hdr-sel pill" title="推理档位"></select>' +
+      '        <select id="presetSel" class="hdr-sel pill" title="预设(仅空白会话可切换)"></select>' +
+      '      </div>' +
+      '      <div class="ctx-meta">' +
+      '        <div class="context-meter" title="会话上下文用量"><div class="cm-bar"><div class="cm-fill"></div></div><span class="cm-label"></span></div>' +
+      '        <button class="iconbtn" id="btnAttach" title="添加图片">&#128206;</button>' +
+      '        <button class="iconbtn" id="btnCompact" title="压缩会话">压缩</button>' +
+      '        <button class="btn primary" id="btnSend">发送</button>' +
+      '        <button class="btn danger" id="btnStop" hidden>停止</button>' +
+      '      </div>' +
       '    </div>' +
       '  </div>' +
       '</main>' +
       '<aside class="dsh-settings" hidden></aside>'
     app.appendChild(root)
-    const selHost = $('.hdr-selects')
-    selHost.innerHTML =
-      '<select id="modelSel" class="hdr-sel" title="模型"></select>' +
-      '<select id="effortSel" class="hdr-sel" title="推理档位"></select>' +
-      '<select id="presetSel" class="hdr-sel" title="预设(仅空白会话可切换)"></select>'
+    const sbToggle = $('.sb-toggle')
+    if (sbToggle) sbToggle.addEventListener('click', () => { $('.dsh-sessionbar').classList.toggle('collapsed') })
     bindHeader()
     bindComposer()
   }
@@ -1229,13 +1236,21 @@
     if (S.openId) { empty.hidden = true; return }
     empty.hidden = false
     clear(empty)
-    const logo = el('div', 'empty-logo', 'DSH')
+    // Claude Code 风格欢迎页
+    const logo = el('div', 'empty-logo', '✳')
     empty.appendChild(logo)
-    empty.appendChild(el('div', 'empty-title', S.wsPath ? '当前工作区' : '未打开工作区'))
-    empty.appendChild(el('div', 'empty-line', S.conn !== 'connected' ? '等待连接 dsh 服务…' : '选择一个会话,或开始新的会话'))
+    empty.appendChild(el('div', 'empty-title', S.wsPath ? 'DSH 助手' : 'DSH 助手'))
+    const card = el('div', 'welcome-card')
+    card.appendChild(el('div', 'welcome-line', S.conn !== 'connected' ? '正在连接 dsh 服务…' : '使用规划模式来回聊大的改动,开新会话前按需输入 /compact 压缩上下文。'))
+    const d = S.describe || {}
+    card.appendChild(el('div', 'welcome-sub', '当前 ' + (d.provider || '—') + ' / ' + (d.model || '—') + (d.version ? ' · 服务 v' + d.version : '')))
+    empty.appendChild(card)
+    const btns = el('div', 'welcome-actions')
     const btn = el('button', 'btn primary', '新会话')
     btn.addEventListener('click', () => post({ type: 'createSession', cwd: S.wsPath }))
-    empty.appendChild(btn)
+    btns.appendChild(btn)
+    if (S.wsPath) btns.appendChild(el('span', 'welcome-hint', '工作区:' + S.wsPath))
+    empty.appendChild(btns)
   }
 
   function renderAll() {

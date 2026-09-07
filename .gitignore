@@ -3,3 +3,6 @@ node_modules/
 .npm-cache/
 __pycache__/
 *.log
+test/ui-smoke/node_modules/
+test/*.log
+test/ui-out.txt

@@ -1,34 +1,17 @@
 'use strict'
 // Headless verification for dsh-webview without a real VS Code window:
 // mocks the vscode API surface the extension uses, activates it, and asserts
-// the attach-to-3080 path plus panel creation. Run: node test/mock-verify.js
+// the native sidebar provider contract (no iframe, protocol client wired).
+// Run: node test/mock-verify.js
 const path = require('node:path')
 
-let panelCount = 0
-const subscriptions = []
-const disposables = new Set()
-function disposable() { const d = { dispose() { disposables.delete(this) } }; disposables.add(d); return d }
+let subscriptions = []
+function disposable() { const d = { dispose() {} }; return d }
 
-function makeDisposable(obj) {
-  obj.dispose = function () { disposables.delete(obj) }
-  disposables.add(obj)
-  return obj
-}
+const commands = {}
+const providers = {}
 
-const mockStatusBar = makeDisposable({ text: '', tooltip: '', command: '', show() {} })
-
-const mockWebview = {
-  html: '',
-  options: {},
-  postMessage(m) { console.log('[verify] webview postMessage:', JSON.stringify(m)) },
-  onDidReceiveMessage(cb) { mockWebview._messageHandler = cb; return { dispose() {} } },
-}
-const mockPanel = makeDisposable({
-  webview: mockWebview,
-  iconPath: null,
-  reveal() { console.log('[verify] panel.reveal()') },
-  onDidDispose(cb) { this._cb = cb },
-})
+const mockStatusBar = { text: '', tooltip: '', command: '', show() {} }
 
 const config = {
   port: 3080, attachExisting: true, spawnIfMissing: true,
@@ -36,11 +19,22 @@ const config = {
   command: '', extraArgs: [], autoOpen: false, followWorkspace: true, stopOnExit: true,
 }
 
-const commands = {}
+// capture the view provider so the test can resolve the sidebar view
+let capturedProvider = null
+const mockView = {
+  webview: {
+    options: {},
+    html: '',
+    postMessage() {},
+    onDidReceiveMessage(cb) { mockView._handler = cb; return disposable() },
+  },
+  onDidDispose() { return disposable() },
+}
+
 const vscode = {
   workspace: {
     getConfiguration: () => ({ ...config, get: (k) => config[k] }),
-    workspaceFolders: [{ uri: { fsPath: '/workspace/example-project' } }],
+    workspaceFolders: [{ uri: { fsPath: 'C:/Users/20906/Desktop/ds_harness' } }],
     onDidChangeWorkspaceFolders: () => disposable(),
     onDidChangeConfiguration: () => disposable(),
   },
@@ -49,20 +43,18 @@ const vscode = {
     createStatusBarItem: () => mockStatusBar,
     showErrorMessage: (m) => console.log('[verify][error-toast]', m),
     showInformationMessage: (m) => console.log('[verify][info-toast]', m),
-    createWebviewPanel: () => { panelCount++; return mockPanel },
-    registerWebviewViewProvider: () => disposable(),
-    registerWebviewPanelSerializer: () => disposable(),
+    registerWebviewViewProvider: (id, provider) => { providers[id] = provider; capturedProvider = provider; return disposable() },
   },
   commands: {
     registerCommand: (id, handler) => { commands[id] = handler; return disposable() },
+    executeCommand: async () => undefined,
   },
-  env: { openExternal: async () => true },
+  env: { openExternal: async () => true, clipboard: { writeText: async () => undefined } },
   Uri: { joinPath: (...p) => path.join(...p), parse: (s) => s },
   StatusBarAlignment: { Left: 1 },
   ViewColumn: { One: 1 },
 }
 
-// Intercept require('vscode') before loading the extension.
 const Module = require('node:module')
 const origLoad = Module._load
 Module._load = function (request, parent, isMain) {
@@ -73,27 +65,32 @@ Module._load = function (request, parent, isMain) {
 require(path.join(__dirname, '..', 'extension.js')).activate({
   subscriptions: [],
   extensionUri: path.join(__dirname, '..'),
+  globalState: { get: async () => null, update: async () => undefined },
 })
 
 setTimeout(async () => {
-  console.log('statusBar.text =', mockStatusBar.text)
-  console.log('statusBar.tooltip =', mockStatusBar.tooltip)
-  // The lazy startup probe should have attached to the live dsh on 3080.
-  const attached = mockStatusBar.text.includes('$(plug)')
-  console.log('[verify] attached to 3080:', attached)
-  // Open the panel through the registered command and check the iframe target.
-  await commands['dshWebPanel.open']()
-  console.log('[verify] panel created:', panelCount === 1)
-  const html = mockWebview.html
-  console.log('[verify] iframe targets 3080:', html.includes('http://127.0.0.1:3080/'))
-  console.log('[verify] reload handler wired:', html.includes('command==="reload"'))
-  console.log('[verify] iframe health report wired:', html.includes('iframe:ready') && html.includes('iframe:stalled') && html.includes('iframe:autoReload'))
-  // Simulate the embedded page reporting a stall, then recovery.
-  mockWebview._messageHandler({ command: 'iframe:stalled' })
-  console.log('[verify] stall reflected in status bar:', mockStatusBar.text.includes('UI未加载'))
-  mockWebview._messageHandler({ command: 'iframe:ready' })
-  console.log('[verify] ready clears the note:', !mockStatusBar.text.includes('UI'))
-  const ok = attached && panelCount === 1 && html.includes('http://127.0.0.1:3080/') && html.includes('command==="reload"') && html.includes('iframe:ready') && html.includes('iframe:stalled') && mockStatusBar.text.includes('$(plug)')
-  console.log(ok ? '[verify] ALL PASS' : '[verify] FAIL')
-  process.exit(ok ? 0 : 1)
-}, 4000)
+  let failures = 0
+  const ok = (name, cond, extra) => {
+    console.log((cond ? '[PASS] ' : '[FAIL] ') + name + (extra ? ' — ' + extra : ''))
+    if (!cond) failures++
+  }
+  ok('dshPanel.toggle registered', typeof commands['dshPanel.toggle'] === 'function')
+  ok('dshPanel.openBrowser registered', typeof commands['dshPanel.openBrowser'] === 'function')
+  ok('dshPanel.reload registered', typeof commands['dshPanel.reload'] === 'function')
+  ok('dshPanel.restartServer registered', typeof commands['dshPanel.restartServer'] === 'function')
+  ok('old editor command removed', typeof commands['dshWebPanel.open'] === 'undefined')
+  ok('sidebar provider registered', !!capturedProvider)
+  ok('status bar points to toggle', mockStatusBar.command === 'dshPanel.toggle')
+
+  // resolve the sidebar view and assert the native UI contract (R1: no iframe)
+  capturedProvider.resolveWebviewView(mockView)
+  ok('webview html set', mockView.webview.html.length > 1000)
+  ok('R1 no iframe', !mockView.webview.html.includes('<iframe'))
+  ok('native UI marker present', mockView.webview.html.includes('dsh-root') || mockView.webview.html.includes('DSH 原生侧边栏'))
+  ok('CSP nonce script', mockView.webview.html.includes('script-src') && mockView.webview.html.includes('nonce-'))
+  ok('app js inlined', mockView.webview.html.includes('acquireVsCodeApi'))
+  ok('webview protocol bridge handler wired', typeof mockView._handler === 'function')
+
+  console.log(failures === 0 ? '[verify] ALL PASS' : '[verify] FAIL count=' + failures)
+  process.exit(failures === 0 ? 0 : 1)
+}, 800)

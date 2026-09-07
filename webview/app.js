@@ -188,6 +188,7 @@
           S.open.models.current = { provider: m.provider, model: m.model, reasoningEffort: cur ? cur.reasoningEffort : undefined }
         }
         renderHeaderSelects()
+        if (S.open.busy) pushSystemRow('模型已切换:' + m.name + ' — 运行中,下一轮生效')
         // 切模型保持当前推理档(服务端默认档只在未指定时使用)
         post({ type: 'selectModel', sessionId: S.openId, provider: m.provider, model: m.model, reasoningEffort: cur ? cur.reasoningEffort : undefined })
       })

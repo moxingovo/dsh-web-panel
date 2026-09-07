@@ -1,21 +1,18 @@
 #!/usr/bin/env node
 'use strict'
-// DSH aux-bar fix v2 (node:sqlite): remove the core chat tab from every
-// workspace's auxiliary-bar state, register the DSH container there, and drop
-// the leftover left-sidebar DSH view state. Run with VS Code FULLY CLOSED.
-// Idempotent; backs up each state.vscdb once (state.vscdb.bak-dsh).
+// DSH aux-bar fix v3: forcibly close the core chat view in every workspace
+// so VS Code cannot rebuild the "chat" aux tab at startup. Run with VS Code
+// FULLY CLOSED. Idempotent; backs up state.vscdb once (state.vscdb.bak-dsh).
 const { DatabaseSync } = require('node:sqlite')
 const fs = require('node:fs')
 const path = require('node:path')
 
 const root = path.join(process.env.APPDATA, 'Code', 'User', 'workspaceStorage')
 const AUX_KEY = 'workbench.auxiliarybar.viewContainersWorkspaceState'
-const staleKeys = [
+const PANEL_KEY = 'workbench.panel.viewContainersWorkspaceState'
+const CHAT_VIEW_KEYS = [
   'workbench.panel.chat',
   'workbench.panel.chat.numberOfVisibleViews',
-  'memento/interactive-session-view-copilot',
-  'GitHub.copilot-chat',
-  'workbench.agentsession.auxiliarybar.viewContainersWorkspaceState',
 ]
 
 let patched = 0
@@ -32,24 +29,43 @@ for (const dir of fs.readdirSync(root, { withFileTypes: true })) {
   let db
   try {
     db = new DatabaseSync(dbPath)
-    const row = db.prepare('SELECT value FROM ItemTable WHERE key = ?').get(AUX_KEY)
-    if (!row) { db.close(); continue }
-    let list = []
-    try { list = JSON.parse(String(row.value)) } catch (e) { list = [] }
-    const next = list.filter((x) => x && x.id !== 'workbench.panel.chat')
-    if (!next.some((x) => x.id === 'workbench.view.extension.dsh-aux')) {
-      next.push({ id: 'workbench.view.extension.dsh-aux', visible: true })
+    const stripChat = (key) => {
+      const row = db.prepare('SELECT value FROM ItemTable WHERE key = ?').get(key)
+      if (!row) return false
+      let list = []
+      try { list = JSON.parse(String(row.value)) } catch { list = [] }
+      if (!Array.isArray(list)) list = []
+      const next = list.filter((x) => x && x.id !== 'workbench.panel.chat')
+      if (next.length === list.length) return false
+      db.prepare('UPDATE ItemTable SET value = ? WHERE key = ?').run(JSON.stringify(next), key)
+      return true
     }
-    const nextJson = JSON.stringify(next)
-    db.prepare('UPDATE ItemTable SET value = ? WHERE key = ?').run(nextJson, AUX_KEY)
-    for (const k of staleKeys) {
+    let changed = false
+    if (stripChat(AUX_KEY)) changed = true
+    if (stripChat(PANEL_KEY)) changed = true
+    // close/kill the chat view whose open state makes the tab reappear
+    for (const k of CHAT_VIEW_KEYS) {
+      db.prepare('DELETE FROM ItemTable WHERE key = ?').run(k)
+    }
+    // ensure DSH aux container registered
+    {
+      const row = db.prepare('SELECT value FROM ItemTable WHERE key = ?').get(AUX_KEY)
+      let list = []
+      try { list = JSON.parse(String(row && row.value || '[]')) } catch { list = [] }
+      if (!list.some((x) => x && x.id === 'workbench.view.extension.dsh-aux')) {
+        list.push({ id: 'workbench.view.extension.dsh-aux', visible: true })
+        db.prepare('UPDATE ItemTable SET value = ? WHERE key = ?').run(JSON.stringify(list), AUX_KEY)
+        changed = true
+      }
+    }
+    for (const k of ['memento/interactive-session-view-copilot', 'GitHub.copilot-chat', 'chat.untitledInputState', 'workbench.agentsession.auxiliarybar.viewContainersWorkspaceState']) {
       db.prepare('DELETE FROM ItemTable WHERE key = ?').run(k)
     }
     db.prepare('DELETE FROM ItemTable WHERE key LIKE ?').run('workbench.view.extension.dsh%')
     db.prepare('DELETE FROM ItemTable WHERE key LIKE ?').run('memento/webviewView.dshWebView%')
     db.close()
     patched++
-    console.log('patched:', dir.name, '->', nextJson.slice(0, 160))
+    console.log('patched:', dir.name)
   } catch (e) {
     errors++
     console.log('ERROR:', dir.name, e.message)

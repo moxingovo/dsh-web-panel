@@ -231,6 +231,7 @@
       case 'sessionList':
         S.sessions = m.items || []
         S.archived = new Set(m.archivedIds || [])
+        if (m.workspacePath) S.wsPath = m.workspacePath
         renderSessionList()
         // A2: 记住上次会话,自动恢复
         if (!S.openId && S.lastSessionId && S.conn === 'connected') {
@@ -437,6 +438,7 @@
     const rows = S.open.rows
     for (const entry of events) {
       foldEvent(entry.event, entry.view, rows)
+      if (typeof entry.seq === 'number' && entry.seq > (S.open.lastAppliedSeq ?? -1)) S.open.lastAppliedSeq = entry.seq
     }
     if (S.open.stream && S.open.stream.assistant) {
       finalizeStreamingAssistant(S.open.stream.assistant)
@@ -462,7 +464,9 @@
         if (S.open.stream) S.open.stream.lastStep = d.step
         break
       case 'user/message': {
-        const row = { kind: 'user', parts: partsOf(d.message && d.message.content), ts: ev.time }
+        const parts = partsOf(d.message && d.message.content)
+        if (!parts.length) break // 空内容帧不渲染(服务端可能回放空帧)
+        const row = { kind: 'user', parts, ts: ev.time }
         rows.push(row)
         break
       }
@@ -978,6 +982,8 @@
   function applyLive(ev, view) {
     const o = S.open
     if (!o) return
+    // 按 seq 去重:历史已折叠或已处理过的事件不再重复应用(否则每条消息出现多条重复/空行)
+    if (typeof ev.seq === 'number' && ev.seq <= (o.lastAppliedSeq ?? -1)) return
     S.open.lastAppliedSeq = o.lastAppliedSeq = ev.seq
     const beforeLen = o.rows.length
     foldEvent(ev, view || null, o.rows)
@@ -1099,11 +1105,7 @@
     const tray = $('.attach-tray')
     tray.hidden = true
     clear(tray)
-    if (!busy) {
-      const row = { kind: 'user', parts: content.map((c) => c.type === 'text' ? { type: 'text', text: c.text } : { type: 'image', name: c.name || '图片' }), ts: Date.now() }
-      S.open.rows.push(row)
-      appendRow(row)
-    }
+    // 不做乐观回显:权威 user/message 事件经 mux 流到达后渲染(已按 seq 去重,避免重复/空气泡)
   }
 
   function renderStopButton() {
@@ -1229,15 +1231,6 @@
   }
 
   // ── banner / empty / settings / timeline ──────────────────────────────────
-  // CC 风格:未打开会话时,输入区只保留输入框+发送,隐藏附件/压缩/用量等控件
-  function updateComposerVisibility() {
-    const has = !!S.openId
-    for (const sel of ['#btnAttach', '#btnCompact', '.context-meter']) {
-      const e = $(sel)
-      if (e) e.style.display = has ? '' : 'none'
-    }
-  }
-
   function renderBanner() {
     const banner = $('.dsh-banner')
     if (!banner) return
@@ -1308,7 +1301,6 @@
     renderContextMeter()
     renderBanner()
     renderSessionList()
-    updateComposerVisibility()
   }
 
   function prependHistory(m) {

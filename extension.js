@@ -304,6 +304,7 @@ class PanelBridge {
     this.connected = false
     this.muxUp = false
     this.hostUp = false
+    this.serverRoot = null // harness 服务端工作区根目录(describe.cwd),会话以它分组
     webview.onDidReceiveMessage((m) => this.onMessage(m).catch((e) => this.error('handler', e)))
   }
 
@@ -426,7 +427,10 @@ class PanelBridge {
   async pushDescribe() {
     try {
       const desc = await this.rpc('host.describe', {})
+      if (desc && typeof desc.cwd === 'string' && desc.cwd) this.serverRoot = desc.cwd
       this.send({ type: 'describe', describe: desc, config: settingsSnapshot() })
+      // 同步服务端工作区根目录给 webview(会话列表/新建会话以此为准,与 harness 本工作区一致)
+      this.send({ type: 'workspace', path: this.serverRoot || firstWorkspacePath() })
     } catch (e) { this.error('describe', e) }
   }
 
@@ -441,18 +445,20 @@ class PanelBridge {
         }
       }
       if (list === null) throw new Error('未连接到 dsh 服务')
-      const workspaces = await this.rpc('workspace.list', {}).catch(() => ({ items: [], archivedSessionIds: [] }))
-      const ws = firstWorkspacePath()
-      const match = (ws && list.items || []).filter((s) => normPath(s.cwd) === normPath(ws)).length
+      const workspaces = await this.rpc('workspace.list', {}).catch(() => ({ archivedSessionIds: [] }))
+      const ws = this.serverRoot || firstWorkspacePath()
+      // 仅展示 harness 本工作区(=服务端工作区根目录)的会话,直接同步桌面 harness 的会话视图
+      const items = (ws && list.items || []).filter((s) => normPath(s.cwd) === normPath(ws))
+      const match = items.length
       output.appendLine('[dsh] session.list total=' + (list.items || []).length + ' workspace=' + (ws || '(none)') + ' match=' + match)
-      this.send({ type: 'sessionList', items: list.items || [], archivedIds: workspaces.archivedSessionIds || [] })
+      this.send({ type: 'sessionList', items, archivedIds: workspaces.archivedSessionIds || [], workspacePath: ws || null })
     } catch (e) { this.error('session.list', e) }
   }
 
   async createSession(m) {
     try {
-      let cwd = m.cwd
-      if (!cwd) cwd = firstWorkspacePath()
+      // 新会话建在 harness 本工作区(服务端工作区根目录),而不是 VS Code 目录/"未分组"
+      let cwd = m.cwd || this.serverRoot || firstWorkspacePath()
       if (!cwd) cwd = os.homedir()
       const value = await this.rpc('session.create', { cwd, ...(m.agentPreset ? { agentPreset: m.agentPreset } : {}) })
       this.send({ type: 'sessionCreated', sessionId: value.sessionId, agentPreset: value.agentPreset })

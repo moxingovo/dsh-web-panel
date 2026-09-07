@@ -236,12 +236,18 @@ button, select, textarea { font-family: inherit; color: inherit; }
 }
 .hdr-sel.pill:hover { background: var(--dsh-pill-hover); }
 .hdr-sel.pill:disabled { opacity: 0.5; cursor: default; }
-.context-meter { display: flex; align-items: center; gap: 5px; }
-.cm-bar { width: 46px; height: 4px; background: var(--dsh-hover); border-radius: 2px; overflow: hidden; flex: none; }
+.context-meter { display: flex; align-items: center; gap: 6px; }
+.cm-bar { width: 48px; height: 4px; background: var(--dsh-hover); border-radius: 2px; overflow: hidden; flex: none; }
 .cm-fill { height: 100%; background: var(--dsh-ok); border-radius: 2px; transition: width 0.25s; }
 .cm-fill.warning { background: var(--dsh-warn); }
 .cm-fill.critical { background: var(--dsh-crit); }
-.cm-label { font-size: 9px; color: var(--dsh-dim); white-space: nowrap; }
+.cm-label { font-size: 10px; color: var(--dsh-dim); white-space: nowrap; }
+#btnCompact {
+  background: var(--dsh-pill-bg); color: var(--dsh-fg); border: 1px solid var(--dsh-border);
+  border-radius: 12px; height: 24px; padding: 0 9px; font-size: 10px; cursor: pointer;
+}
+#btnCompact:hover { background: var(--dsh-pill-hover); }
+#btnAttach { font-size: 14px; }
 .sendbtn {
   width: 28px; height: 28px; border-radius: 50%; border: none; flex: none;
   background: var(--dsh-accent); color: var(--dsh-accent-fg);

@@ -272,11 +272,11 @@ function refreshStatus() {
 // single CSP-clean HTML document (script-src nonce, no resource origins).
 function webviewBodiesRead() {
   if (webviewBodies) return webviewBodies
-  const root = context.extensionUri
-  const read = (p) => fs.readFileSync(path.join(root, p), 'utf8')
+  // context.extensionUri is a vscode.Uri — join through Uri, read via fsPath.
+  const read = (...segments) => fs.readFileSync(vscode.Uri.joinPath(context.extensionUri, ...segments).fsPath, 'utf8')
   webviewBodies = {
-    css: read('webview/app.css'),
-    js: read('webview/markdown.js') + '\n' + read('webview/app.js'),
+    css: read('webview', 'app.css'),
+    js: read('webview', 'markdown.js') + '\n' + read('webview', 'app.js'),
   }
   return webviewBodies
 }

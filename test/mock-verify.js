@@ -50,7 +50,7 @@ const vscode = {
     executeCommand: async () => undefined,
   },
   env: { openExternal: async () => true, clipboard: { writeText: async () => undefined } },
-  Uri: { joinPath: (...p) => path.join(...p), parse: (s) => s },
+  Uri: { joinPath: (u, ...seg) => ({ fsPath: path.join(typeof u === 'string' ? u : u.fsPath, ...seg) }), parse: (s) => s },
   StatusBarAlignment: { Left: 1 },
   ViewColumn: { One: 1 },
 }
@@ -62,9 +62,10 @@ Module._load = function (request, parent, isMain) {
   return origLoad.apply(this, arguments)
 }
 
-require(path.join(__dirname, '..', 'extension.js')).activate({
+const repoRoot = path.join(__dirname, '..')
+require(path.join(repoRoot, 'extension.js')).activate({
   subscriptions: [],
-  extensionUri: path.join(__dirname, '..'),
+  extensionUri: { fsPath: repoRoot },
   globalState: { get: async () => null, update: async () => undefined },
 })
 

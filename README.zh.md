@@ -55,17 +55,30 @@ PATH 里的 `dsh` CLI → `npx @deepseek-ai/dsh`)。服务器以 **cwd = 当前�
 
 ## 排障:右上角图标不显示 / "聊天"标签去不掉
 
-根因:VS Code 1.136 把辅助栏容器图标(标题栏/右缘图标条)存在**全局存储**
+两个独立根因,均已内置一键修复(`fix-dsh.cmd` 按顺序执行):
+
+### 根因 1:扩展扫描缓存指向已删除的旧版本目录
+
+VS Code 把扩展扫描结果缓存在 `.vscode\extensions\extensions.json`。若安装新版本时
+直接删除了旧版本目录,VS Code 启动时仍按缓存找旧目录 → ENOENT → 把扩展标记为
+"损坏",**同目录下的新版本永远不会被发现**(图标因此不出现)。
+
+修复:`test\fix-cache.js` —— 把缓存条目更新为新版本路径、清除档案级扫描缓存
+(强制全量重扫)、修正 placeholder 图标路径。备份自动生成。
+
+### 根因 2:辅助栏容器图标/聊天标签驻留在全局存储
+
+VS Code 1.136 把辅助栏容器图标(标题栏/右缘图标条)存在**全局存储**
 `workbench.auxiliarybar.pinnedPanels`,聊天标签的常驻状态也在那里;仅改工作区状态无效,
 且 VS Code 运行中修改会被退出时的内存回写覆盖。
 
-修复(已内置一键脚本):
+修复:`test\fix-state.js` —— 从全局 pinned 列表移除聊天、登记 `dsh-aux`,聊天视图置
+隐藏(全部工作区),每个 `state.vscdb` 自动备份。
+
+### 使用
 
 1. **完全退出 VS Code**(所有窗口,含最小化);
-2. 双击桌面 `fix-dsh.cmd`(或运行仓库 `test\fix-state.js`):
-   - 从全局 pinned 列表移除聊天、登记 `dsh-aux`(DeepSeek Harness);
-   - 置聊天视图为隐藏(19 个工作区全部处理);
-   - 自动备份每个 `state.vscdb`(`.bak-dsh`),幂等可重复运行;
+2. 双击桌面 `fix-dsh.cmd`(自动检测 VS Code 是否关闭);
 3. 重新打开 VS Code → 右上角出现蓝色 harness 图标,聊天不再出现。
 
 ## 开发

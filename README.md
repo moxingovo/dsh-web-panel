@@ -63,19 +63,34 @@ Troubleshooting: **Output → DSH** (logs connection and protocol traffic).
 
 ## Troubleshooting: missing top-right icon / persistent "Chat" tab
 
-Root cause: VS Code 1.136 stores auxiliary-bar container icons (title-bar /
-right-edge strip) in **global** storage `workbench.auxiliarybar.pinnedPanels`;
-the Chat tab's persistence lives there too. Patching only the per-workspace
-state is ineffective, and edits made while VS Code is running get overwritten
-on exit.
+Two independent root causes, both fixed by the bundled one-click `fix-dsh.cmd`:
 
-Fix (one-click script included):
+### Cause 1: the extension scan cache points at a deleted old-version folder
+
+VS Code caches its extension scan in `.vscode\extensions\extensions.json`. If a new
+version is installed by deleting the old folder, VS Code still looks for the old path
+at startup → ENOENT → the extension is marked broken and the new version in the same
+folder is **never discovered** (hence no icon).
+
+Fix: `test\fix-cache.js` — rewrites the cache entry to the new path, drops the
+profile-level scan caches (forcing a full rescan), and repairs the placeholder icon
+path. Backups are created automatically.
+
+### Cause 2: auxiliary-bar container icons / Chat tab persistence live in global storage
+
+VS Code 1.136 stores auxiliary-bar container icons (title-bar / right-edge strip) in
+**global** storage `workbench.auxiliarybar.pinnedPanels`; the Chat tab's persistence
+lives there too. Patching only the per-workspace state is ineffective, and edits made
+while VS Code is running get overwritten on exit.
+
+Fix: `test\fix-state.js` — removes Chat from the global pinned list, registers
+`dsh-aux`, hides the Chat view across all workspace DBs, and backs up every
+`state.vscdb` (`.bak-dsh`); idempotent.
+
+### Usage
 
 1. **Fully exit VS Code** (all windows, including minimized);
-2. Double-click `fix-dsh.cmd` on the Desktop (or run `test\fix-state.js`):
-   - removes Chat from the global pinned list and registers `dsh-aux`;
-   - hides the Chat view across all 19 workspace DBs;
-   - backs up every `state.vscdb` (`.bak-dsh`); idempotent;
+2. Double-click `fix-dsh.cmd` on the Desktop (it refuses to run while VS Code is open);
 3. Reopen VS Code → the blue harness icon appears top-right, Chat is gone.
 
 ## Development

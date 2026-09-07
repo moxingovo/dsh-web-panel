@@ -80,13 +80,17 @@
       '      <div class="cc-left">' +
       '        <button class="iconbtn" id="btnAttach" title="添加图片">&#128206;</button>' +
       '        <div class="hdr-selects">' +
+      '          <select id="permSel" class="hdr-sel pill" title="权限模式"></select>' +
       '          <select id="modelSel" class="hdr-sel pill" title="模型"></select>' +
       '          <select id="effortSel" class="hdr-sel pill" title="推理档位"></select>' +
       '          <select id="presetSel" class="hdr-sel pill" title="预设(仅空白会话可切换)"></select>' +
       '        </div>' +
       '      </div>' +
       '      <div class="cc-right">' +
-      '        <div class="context-meter" title="会话上下文用量"><div class="cm-bar"><div class="cm-fill"></div></div><span class="cm-label"></span></div>' +
+      '        <div class="context-meter">' +
+      '          <button class="cm-ring" id="cmRing" title="上下文占用"><svg viewBox="0 0 14 14" width="16" height="16"><circle class="cm-track" cx="7" cy="7" r="5.5"/><circle class="cm-arc" cx="7" cy="7" r="5.5" transform="rotate(-90 7 7)"/></svg></button>' +
+      '          <div class="cm-panel" hidden></div>' +
+      '        </div>' +
       '        <button class="iconbtn" id="btnCompact" title="压缩会话">压缩</button>' +
       '        <button class="sendbtn" id="btnSend" title="发送">&#8593;</button>' +
       '        <button class="sendbtn stop" id="btnStop" title="停止" hidden>&#9632;</button>' +
@@ -123,6 +127,28 @@
       if (!preset) return
       post({ type: 'selectPreset', sessionId: S.openId, agentPreset: preset })
     })
+    $('#permSel').addEventListener('change', (e) => {
+      // 权限模式:计划模式走 /plan 命令(harness 原生);自动=预设决定
+      const v = e.target.value
+      if (!S.openId) return
+      if (v === 'plan') post({ type: 'prompt', sessionId: S.openId, mode: 'queue', content: [{ type: 'text', text: '/plan' }] })
+      else post({ type: 'prompt', sessionId: S.openId, mode: 'queue', content: [{ type: 'text', text: '/plan off' }] })
+      e.target.value = 'auto'
+    })
+    const cmRing = $('#cmRing')
+    if (cmRing) {
+      cmRing.addEventListener('click', (e) => {
+        e.stopPropagation()
+        const panel = $('.cm-panel')
+        if (!panel) return
+        panel.hidden = !panel.hidden
+      })
+      document.addEventListener('pointerdown', (e) => {
+        const meter = $('.context-meter')
+        const panel = $('.cm-panel')
+        if (meter && panel && !panel.hidden && !meter.contains(e.target)) panel.hidden = true
+      })
+    }
   }
 
   function bindComposer() {
@@ -1137,35 +1163,82 @@
   }
 
   // ── context meter (D1: 服务端 projections 优先,无则估算) ───────────────────
+  function fmtTokens(n) {
+    if (n === undefined || n === null) return '–'
+    if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M'
+    if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k'
+    return String(n)
+  }
+
   function renderContextMeter() {
     const o = S.open
     const meter = $('.context-meter')
     if (!meter || !o) return
     const p = o.projections || {}
     const pressure = p.contextPressure || {}
+    const breakdown = p.contextBreakdown || null
     let tokens = pressure.pressureTokens
     let window = pressure.contextWindow || o.contextWindow
-    let estimated = false
     if ((tokens === undefined || window === undefined) && p.tokenUsage) {
       const u = p.tokenUsage
       tokens = (u.uncachedInputTokens || 0) + (u.outputTokens || 0) + (u.cacheReadTokens || 0)
-      estimated = !pressure.contextWindow
     }
-    const fill = meter.querySelector('.cm-fill')
-    const label = meter.querySelector('.cm-label')
+    const arc = meter.querySelector('.cm-arc')
+    const panel = meter.querySelector('.cm-panel')
+    if (!arc || !panel) return
     if (tokens === undefined || !window) {
-      fill.style.width = '0%'
-      fill.className = 'cm-fill'
-      label.textContent = '上下文 –'
+      arc.setAttribute('stroke-dasharray', '0 100')
+      arc.classList.remove('warning', 'critical')
+      meter.title = '上下文用量'
       return
     }
     const pct = Math.min(100, (tokens / window) * 100)
-    fill.style.width = pct.toFixed(1) + '%'
-    fill.className = 'cm-fill ' + (pct > 90 ? 'critical' : pct > 70 ? 'warning' : '')
-    label.textContent = fmtNum(tokens) + ' / ' + fmtNum(window) + ' (' + pct.toFixed(0) + '%)' + (estimated ? ' ·估算' : '')
-    meter.title = (estimated ? '估算值' : '服务端 token 计量') + ' — >70% 黄色预警, >90% 红色建议压缩'
+    const CIRC = 2 * Math.PI * 5.5
+    arc.setAttribute('stroke-dasharray', (CIRC * pct / 100).toFixed(2) + ' ' + CIRC.toFixed(2))
+    arc.classList.toggle('warning', pct > 70 && pct <= 90)
+    arc.classList.toggle('critical', pct > 90)
+    meter.title = '上下文已用 ' + pct.toFixed(0) + '%(~' + fmtTokens(tokens) + ' / ' + fmtTokens(window) + ')'
     const btn = $('#btnCompact')
-    btn.classList.toggle('urgent', pct > 90)
+    if (btn) btn.classList.toggle('urgent', pct > 90)
+    // harness 同款展开面板:百分比 + 数字 + 三段拆分(系统/工具/消息)
+    clear(panel)
+    const head = el('div', 'cmp-head')
+    head.appendChild(el('span', 'cmp-percent', pct.toFixed(0) + '%'))
+    head.appendChild(el('span', 'cmp-figures', '~' + fmtTokens(tokens) + ' / ' + fmtTokens(window)))
+    panel.appendChild(head)
+    const bar = el('div', 'cmp-bar')
+    const rows = [
+      { key: 'systemTokens', label: '系统', cls: 'cmp-system' },
+      { key: 'toolsTokens', label: '工具', cls: 'cmp-tools' },
+      { key: 'messageTokens', label: '消息', cls: 'cmp-messages' },
+    ]
+    const bTotal = breakdown ? (breakdown.systemTokens + breakdown.toolsTokens + breakdown.messageTokens) : 0
+    if (breakdown && bTotal > 0) {
+      for (const r of rows) {
+        const w = pct * (breakdown[r.key] || 0) / bTotal
+        if (w > 0) {
+          const seg = el('div', 'cmp-seg ' + r.cls)
+          seg.style.width = w.toFixed(1) + '%'
+          bar.appendChild(seg)
+        }
+      }
+    } else {
+      const seg = el('div', 'cmp-seg cmp-system')
+      seg.style.width = pct.toFixed(1) + '%'
+      bar.appendChild(seg)
+    }
+    panel.appendChild(bar)
+    const dl = el('div', 'cmp-rows')
+    for (const r of rows) {
+      const row = el('div', 'cmp-row')
+      const dt = el('span', 'cmp-label')
+      dt.appendChild(el('span', 'cmp-swatch ' + r.cls))
+      dt.appendChild(document.createTextNode(r.label))
+      row.appendChild(dt)
+      row.appendChild(el('span', 'cmp-val', '~' + fmtTokens(breakdown ? breakdown[r.key] : undefined)))
+      dl.appendChild(row)
+    }
+    panel.appendChild(dl)
   }
 
   // ── header selects (模型/推理档/预设) ─────────────────────────────────────
@@ -1183,6 +1256,13 @@
       return
     }
     if (selHost) selHost.style.display = ''
+    const perm = $('#permSel')
+    if (perm) {
+      clear(perm)
+      perm.appendChild(el('option', 'auto', '权限:自动'))
+      perm.appendChild(el('option', 'plan', '权限:计划模式'))
+      perm.value = 'auto'
+    }
     clear(preset)
     const defOpt = el('option', '', o.blank ? '新建会话选择预设…' : '预设:' + (o.preset || '—'))
     defOpt.value = ''

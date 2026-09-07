@@ -78,7 +78,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
     { event: { type: 'request/context', seq: 11, time: Date.now(), data: { contextWindow: 1000000 } } },
     { event: { type: 'turn/end', seq: 12, time: Date.now(), data: { turn: 1 } } },
   ]
-  post({ type: 'sessionOpened', sessionId: 's1', events: hist, projections: { asOfSeq: 12, values: { tokenUsage: { uncachedInputTokens: 10, outputTokens: 5, cacheReadTokens: 100, cacheWriteTokens: 0 }, contextPressure: { pressureTokens: 115, contextWindow: 1000000 } } }, hasMore: false, blank: false, models: null, presets: { presets: [] } })
+  post({ type: 'sessionOpened', sessionId: 's1', events: hist, projections: { asOfSeq: 12, values: { tokenUsage: { uncachedInputTokens: 10, outputTokens: 5, cacheReadTokens: 100, cacheWriteTokens: 0 }, contextPressure: { pressureTokens: 460000, contextWindow: 1000000 } } }, hasMore: false, blank: false, models: null, presets: { presets: [] } })
   await sleep(50)
   ok('user message rendered', $$('.msg.user .md').length === 1 && $$('.msg.user .md')[0].textContent.includes('你好'))
   ok('assistant text rendered', $$('.msg.assistant .textblock').length === 1 && $$('.msg.assistant .textblock')[0].textContent.includes('你好'))
@@ -86,7 +86,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
   ok('tool result attached', $$('.tool-card')[0].textContent.includes('RESULT: ok'))
   ok('todo card rendered', $$('.todo-card').length === 1)
   ok('approval card rendered', $$('.approval-card').length === 1 && $$('.approval-actions .btn').length === 2)
-  ok('context meter numeric', $('.cm-label').textContent.includes('115') && $('.cm-label').textContent.includes('1000k'), $('.cm-label').textContent)
+  ok('context meter ring', (() => {
+    const arc = $('.cm-arc')
+    if (!arc) return false
+    return parseFloat(arc.getAttribute('stroke-dasharray') || '0') > 0
+  })(), 'ring dasharray set')
   ok('preset select disabled (session started)', $('#presetSel').disabled === true)
   ok('stop hidden (idle)', $('#btnStop').hidden === true)
 

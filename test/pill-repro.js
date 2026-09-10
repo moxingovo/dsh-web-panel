@@ -37,7 +37,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   post({ type: 'sessionList', items: [{ sessionId: 's1', cwd: 'C:/Users/20906/Desktop/ds_harness', agentPreset: 'code' }], archivedIds: [], workspacePath: 'C:/Users/20906/Desktop/ds_harness' });
   post({
     type: 'sessionOpened', sessionId: 's1', events: [], projections: null, hasMore: false, blank: true,
-    models: { current: { provider: 'deepseek-official', model: 'deepseek-v4-pro', reasoningEffort: 'max' }, groups: [{ id: 'deepseek-official', models: [{ id: 'deepseek-v4-pro', name: 'DeepSeek-V4-Pro', reasoning: { efforts: [{ id: 'off', name: 'Off' }, { id: 'high', name: 'High' }, { id: 'max', name: 'Max' }] } }, { id: 'deepseek-v4-flash', name: 'Flash', reasoning: { efforts: [{ id: 'off', name: 'Off' }, { id: 'max', name: 'Max' }] } }] }] },
+    models: { current: { provider: 'deepseek-official', model: 'deepseek-v4-pro', reasoningEffort: 'max' }, groups: [{ id: 'deepseek-official', models: [{ id: 'deepseek-v4-pro', name: 'DeepSeek-V4-Pro', reasoning: { efforts: [{ id: 'off', name: 'Off' }, { id: 'high', name: 'High' }, { id: 'max', name: 'Max' }] } }, { id: 'deepseek-flash', name: 'DeepSeek-Flash', reasoning: { efforts: [{ id: 'off', name: 'Off' }, { id: 'max', name: 'Max' }] } }] }] },
     presets: { presets: [{ id: 'code', name: 'code', isDefault: true }, { id: 'standard', name: 'standard' }] },
   });
   await sleep(50);

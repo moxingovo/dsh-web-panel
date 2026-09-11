@@ -462,14 +462,19 @@ class PanelBridge {
       // 新会话必须落在 harness 工作区(实证:cwd 不会入组,workspaceId 才会)
       const wsRoot = firstWorkspacePath() || os.homedir()
       const workspaces = await this.rpc('workspace.list', {}).catch(() => ({ items: [] }))
-      let target = (workspaces.items || []).find((w) => normPath(w.path) === normPath(wsRoot))
+      let target = (workspaces.items || []).find((w) => normPath(w.path) === normPath(wsRoot)) || null
       if (!target) {
-        target = await this.rpc('workspace.create', { path: wsRoot }).catch(() => null)
+        // workspace.create 返回 { workspace:{workspaceId,...}, created } —— 兼容两种结构
+        const created = await this.rpc('workspace.create', { path: wsRoot }).catch(() => null)
+        target = (created && (created.workspace || created)) || null
       }
+      const wsId = target && typeof target.workspaceId === 'string' ? target.workspaceId : null
+      if (!target) output.appendLine('[dsh] workspace lookup/create failed for ' + wsRoot + ' — falling back to cwd')
       const payload = {
-        ...(target ? { workspaceId: target.workspaceId } : { cwd: wsRoot }),
+        ...(wsId ? { workspaceId: wsId } : { cwd: wsRoot }),
         ...(m.agentPreset ? { agentPreset: m.agentPreset } : {}),
       }
+      output.appendLine('[dsh] session.create workspace=' + (wsId || '(none)') + ' root=' + wsRoot)
       const value = await this.rpc('session.create', payload)
       this.send({ type: 'sessionCreated', sessionId: value.sessionId, agentPreset: value.agentPreset })
       await this.listSessions({})

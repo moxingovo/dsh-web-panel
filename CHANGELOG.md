@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.4.2
+
+- 修复:`workspace.create` 响应结构解析错误(返回的是 `{workspace:{workspaceId,...}}`,少剥一层),导致**新窗口 / 未建过工作区的文件夹**里新建的会话既没有 workspaceId 也没有 cwd → 落到服务端默认目录 → 在 harness 里显示为"未分组",同时**不出现在该窗口的"本工作区"会话列表**。现在会先按窗口文件夹匹配工作区,匹配不到就调用 `workspace.create` 自动建立,再以 `workspaceId` 建会话,新会话正确入组且 cwd 等于该文件夹。
+
 ## 0.4.1
 
 - 修复:历史事件水位读取错误字段,导致 `session/subscribed` 触发无限重拉循环(面板卡顿、RPC 轰炸的根因);现读 `event.seq`。
